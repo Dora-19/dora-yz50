@@ -19,6 +19,7 @@ def loss(prediction, target):
     return (prediction - target) ** 2
 
 prediction_for_neuron = forward_pass(weights, input_values, bias)
+loss_value = loss(prediction_for_neuron, target)
 
 print("Prediction:", prediction_for_neuron)
-print("Loss:", loss(prediction_for_neuron, target))
+print("Loss:", loss_value)

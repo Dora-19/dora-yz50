@@ -2,7 +2,7 @@ import math
 
 weights = [2.5, 1.5, 3.0] #nöronun kendisine ait bir özellik bu weightler
 input_values = [0.5, 1.0, 2.0]
-bias = 0.5
+bias = 0.5 #bare minimum gibi düün, şu x değerinin üstünde aktive olsun sadece gibi.
 total = 0
 
 def sigmoid(x):

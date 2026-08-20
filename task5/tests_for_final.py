@@ -21,25 +21,17 @@ def loss(prediction, target):
 
 prediction_for_neuron = forward_pass(weights, input_values, bias)
 
-i = -25
-plot_pred = []
-plot_loss = []
-plot_w = []
+h = 0.0001 # turev hesabı icin cok kucuk degisim
 
-while i <= 25:
-    weights[0] = i
-    plot_w.append(i)
+loss_1 = loss(prediction_for_neuron, target)
 
-    prediction_for_neuron = forward_pass(weights, input_values, bias)
-    plot_pred.append(prediction_for_neuron)
+weights[0] += h
+prediction_for_neuron = forward_pass(weights, input_values, bias)
 
-    loss_value = loss(prediction_for_neuron, target)
-    plot_loss.append(loss_value)
-    i += 0.1
+loss_2 = loss(prediction_for_neuron, target)
 
-plt.plot(plot_w, plot_loss)
-plt.xlabel("weights")
-plt.ylabel("loss")
-plt.show()
+weights[0] -= h #weighti orjinal haline çevirdik geri
 
+loss_derivative = (loss_2 - loss_1) / h
 
+print("Loss derivative with respect to weight[0]:", loss_derivative)
