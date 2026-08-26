@@ -1,3 +1,4 @@
+#Basit bir loss fonksiyonu yaz.
 import math
 
 weights = [2.5, 1.5, 3.0] #nöronun kendisine ait bir özellik bu weightler

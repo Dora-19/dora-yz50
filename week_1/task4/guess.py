@@ -1,3 +1,4 @@
+#Parametreleri manuel değiştirerek loss'un nasıl değiştiğini gözlemle, loss eğrisini çiz.
 import math
 import matplotlib.pyplot as plt
 

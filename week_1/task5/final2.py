@@ -1,3 +1,4 @@
+#Sayısal türev (numerical derivative) ile basit bir gradient descent döngüsü kur: parametreyi küçük adımlarla güncelleyerek loss'u düşür.
 import math
 import matplotlib.pyplot as plt
 
@@ -42,6 +43,6 @@ for step in range(2000):
     weights[0] = weights[0] - learning_rate * loss_derivative
 
 forward_pass_result = forward_pass(weights, input_values, bias)
-print("final loss:", loss(forward_pass_result, target))
+print("final loss:", loss(forward_pass_result, target)) #0.000000000027562500004208057
 print("Final weight:", weights[0])
 print("final_der",loss_derivative)

@@ -1,3 +1,4 @@
+#Birden fazla nörondan oluşan küçük bir katman kur, forward pass'i buna genişlet.
 import math
 
 weights = [[2.5, 1.5, 3.0], [2.5, 1.5, 3.0], [2.5, 1.5, 3.0]] #nöronun kendisine ait bir özellik bu weightler

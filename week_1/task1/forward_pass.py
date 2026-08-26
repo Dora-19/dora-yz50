@@ -1,3 +1,4 @@
+#Python ile tek nöron forward pass yaz, kütüphane kullanmadan. 
 import math
 weight = 2.5
 input_value = 0.5
