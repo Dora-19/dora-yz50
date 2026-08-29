@@ -203,7 +203,7 @@ for k in range(20):
 
     #backward pass
     for p in n.parameters():
-        p.grad = 0.0
+        p.grad = 0.0     #videodaki ünlü bug
     loss.backward()
 
     #uypdate
