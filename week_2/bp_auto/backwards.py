@@ -40,7 +40,7 @@ class Value:
         
         return output
     
-    def _pow__(self, other):   #YENI
+    def __pow__(self, other):   #YENI
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
         output = Value(self.data**other, (self,), f"**{other}")
 
@@ -50,16 +50,16 @@ class Value:
 
         return output
     
-    def _rmul__(self, other):  #YENI
+    def __rmul__(self, other):  #YENI
         return self * other
     
-    def _truediv__(self, other):  #YENI
+    def __truediv__(self, other):  #YENI
         return self * other**-1
     
-    def _neg__(self):  #YENI
+    def __neg__(self):  #YENI
         return self * -1
     
-    def _sub__(self, other):   #YENI
+    def __sub__(self, other):   #YENI
         return self + (-other)
     
     def exp(self):

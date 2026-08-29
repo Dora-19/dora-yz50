@@ -206,7 +206,7 @@ for k in range(20):
         p.grad = 0.0     #videodaki ünlü bug
     loss.backward()
 
-    #uypdate
+    #update
     for p in n.parameters():
         p.data += -0.05 * p.grad  # gradient descent
 
