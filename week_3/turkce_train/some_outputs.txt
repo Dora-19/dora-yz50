@@ -11,3 +11,5 @@ FAL.
 ESERAZ.
 SÜCETT.
 MAŞEK.
+GÜL.
+İBAN.
