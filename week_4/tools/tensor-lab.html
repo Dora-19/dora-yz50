@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tensor Lab — MLP boyunca şekiller ve sayılar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1116;
+    --panel:#171B22;
+    --panel-2:#1E242D;
+    --line:#262C36;
+    --line-2:#39424F;
+    --ink:#C9D1D9;
+    --ink-dim:#7D8794;
+    --ink-faint:#525B67;
+    --neg:#4C8FBF;
+    --pos:#D98A3D;
+    --trace:#7BE0C6;
+    --trace-dim:#2F5D54;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+
+  header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:24px;}
+  h1{
+    font-family:var(--mono);
+    font-size:19px;
+    font-weight:500;
+    letter-spacing:-0.01em;
+    margin:0 0 6px;
+  }
+  header p{margin:0;color:var(--ink-dim);font-size:14px;max-width:62ch;}
+
+  .controls{
+    display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:14px 18px;
+    margin-bottom:22px;
+  }
+  .ctrl{display:flex;flex-direction:column;gap:5px;min-width:150px;}
+  .ctrl label{font-family:var(--mono);font-size:12px;color:var(--ink-dim);}
+  .ctrl .val{color:var(--trace);}
+  .ctrl-row{display:flex;align-items:center;gap:10px;}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    background:transparent;width:120px;height:16px;margin:0;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line-2);}
+  input[type=range]::-moz-range-track{height:2px;background:var(--line-2);}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:12px;height:12px;background:var(--trace);margin-top:-5px;border-radius:0;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px;height:12px;background:var(--trace);border:0;border-radius:0;
+  }
+  input[type=range]:focus-visible{outline:1px solid var(--trace);outline-offset:4px;}
+
+  button{
+    font-family:var(--mono);font-size:12px;
+    background:transparent;color:var(--ink);
+    border:1px solid var(--line-2);
+    padding:7px 13px;cursor:pointer;
+  }
+  button:hover{background:var(--panel-2);border-color:var(--trace);}
+  button:focus-visible{outline:1px solid var(--trace);outline-offset:2px;}
+  button.on{border-color:var(--trace);color:var(--trace);}
+
+  .pipe{display:flex;flex-wrap:wrap;gap:0;margin-bottom:24px;}
+  .stage{
+    flex:1;min-width:120px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-right:none;
+    padding:10px 12px;
+    cursor:pointer;
+    text-align:left;
+    font-family:var(--mono);
+    transition:background .12s;
+  }
+  .stage:last-child{border-right:1px solid var(--line);}
+  .stage:hover{background:var(--panel-2);}
+  .stage.sel{background:var(--panel-2);border-color:var(--trace);position:relative;z-index:1;}
+  .stage .nm{font-size:12px;color:var(--ink-dim);display:block;}
+  .stage.sel .nm{color:var(--trace);}
+  .stage .sh{font-size:14px;color:var(--ink);display:block;margin-top:2px;}
+  .stage .op{font-size:11px;color:var(--ink-faint);display:block;margin-top:3px;}
+
+  .board{
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:0;
+    margin-bottom:22px;
+  }
+  .board-head{
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap;
+  }
+  .board-head h2{
+    font-family:var(--mono);font-size:14px;font-weight:500;margin:0;color:var(--ink);
+  }
+  .board-head .hint{font-size:12px;color:var(--ink-faint);font-family:var(--mono);}
+  .board-body{padding:20px 18px;}
+
+  .scene{
+    perspective:1100px;
+    height:340px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;
+    user-select:none;
+    overflow:hidden;
+  }
+  .scene.drag{cursor:grabbing;}
+  .cube{transform-style:preserve-3d;position:relative;transition:transform .05s linear;}
+  .slice{position:absolute;transform-style:preserve-3d;}
+  .slice-tag{
+    position:absolute;font-family:var(--mono);font-size:10px;color:var(--ink-faint);
+    white-space:nowrap;
+  }
+
+  .cell{
+    position:absolute;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;
+    border:1px solid var(--line-2);
+    background:var(--panel-2);
+    color:var(--ink);
+  }
+  .cell.hot{border-color:var(--trace);color:var(--trace);z-index:2;}
+  .cell.dim{opacity:.28;}
+  .cell.clickable{cursor:pointer;}
+  .cell.clickable:hover{border-color:var(--trace);}
+  .cell.edit{cursor:text;}
+  .cell input{
+    width:100%;height:100%;background:var(--bg);color:var(--trace);
+    border:0;text-align:center;font-family:var(--mono);font-size:11px;padding:0;
+  }
+  .cell input:focus{outline:1px solid var(--trace);}
+
+  .flat{display:flex;flex-direction:column;gap:2px;align-items:flex-start;}
+  .frow{display:flex;gap:2px;align-items:center;}
+  .rowlab{
+    font-family:var(--mono);font-size:10px;color:var(--ink-faint);
+    width:56px;text-align:right;padding-right:8px;flex:none;
+  }
+  .collabs{display:flex;gap:2px;margin-left:56px;margin-bottom:3px;}
+  .collab{
+    font-family:var(--mono);font-size:10px;color:var(--ink-faint);
+    text-align:center;flex:none;
+  }
+  .gcell{
+    position:relative;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;
+    border:1px solid var(--line-2);
+  }
+
+  .matmul{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;}
+  .mm-part{display:flex;flex-direction:column;gap:8px;}
+  .mm-part h3{
+    font-family:var(--mono);font-size:12px;font-weight:400;
+    color:var(--ink-dim);margin:0;
+  }
+  .mm-op{
+    font-family:var(--mono);font-size:18px;color:var(--ink-faint);
+    align-self:center;padding-top:40px;
+  }
+
+  .trace{
+    border-top:1px solid var(--line);
+    padding:16px 18px;
+    background:var(--bg);
+    min-height:74px;
+  }
+  .trace .empty{color:var(--ink-faint);font-size:13px;font-family:var(--mono);}
+  .trace .eq{
+    font-family:var(--mono);font-size:13px;line-height:2;
+    word-break:break-word;
+  }
+  .trace .eq .k{color:var(--trace);}
+  .trace .eq .res{color:var(--pos);}
+  .trace .lead{font-size:13px;color:var(--ink-dim);margin:0 0 8px;}
+
+  .legend{
+    display:flex;gap:18px;align-items:center;flex-wrap:wrap;
+    font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    margin-top:14px;
+  }
+  .swatch{display:inline-block;width:22px;height:10px;vertical-align:-1px;margin-right:6px;}
+
+  .notes{
+    margin-top:30px;border-top:1px solid var(--line);padding-top:20px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:22px;
+  }
+  .note h3{font-family:var(--mono);font-size:13px;font-weight:500;margin:0 0 6px;color:var(--ink);}
+  .note p{margin:0;font-size:13.5px;color:var(--ink-dim);line-height:1.65;}
+  code{font-family:var(--mono);font-size:.92em;color:var(--ink);}
+
+  @media (prefers-reduced-motion: reduce){
+    .cube{transition:none;}
+  }
+  @media (max-width:640px){
+    .scene{height:280px;}
+    .matmul{gap:14px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>tensor lab</h1>
+  <p>Karpathy'nin MLP'si, her sayısı görünecek kadar küçültülmüş. Alfabe 6 harf, veri üç isim. Aşamaya tıkla, tensor'ü sürükleyerek döndür, herhangi bir çıktı hücresine tıkla — onu hangi çarpımların ürettiğini altta terim terim görürsün. Ağırlık hücrelerine çift tıklayıp değer yazabilirsin, her şey anında yeniden hesaplanır.</p>
+</header>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>block_size <span class="val" id="v-bs">3</span></label>
+    <div class="ctrl-row"><input type="range" id="bs" min="1" max="4" step="1" value="3" /></div>
+  </div>
+  <div class="ctrl">
+    <label>embedding boyutu <span class="val" id="v-ed">2</span></label>
+    <div class="ctrl-row"><input type="range" id="ed" min="1" max="4" step="1" value="2" /></div>
+  </div>
+  <div class="ctrl">
+    <label>gizli nöron <span class="val" id="v-nh">4</span></label>
+    <div class="ctrl-row"><input type="range" id="nh" min="2" max="8" step="1" value="4" /></div>
+  </div>
+  <div class="ctrl">
+    <label>gösterilen örnek <span class="val" id="v-ns">4</span></label>
+    <div class="ctrl-row"><input type="range" id="ns" min="1" max="8" step="1" value="4" /></div>
+  </div>
+  <div class="ctrl">
+    <label>dilim aralığı <span class="val" id="v-sp">70</span></label>
+    <div class="ctrl-row"><input type="range" id="sp" min="0" max="160" step="5" value="70" /></div>
+  </div>
+  <div class="ctrl">
+    <label>&nbsp;</label>
+    <div class="ctrl-row">
+      <button id="reroll">yeni ağırlık</button>
+      <button id="face">düz bak</button>
+    </div>
+  </div>
+</div>
+
+<div class="pipe" id="pipe"></div>
+
+<div class="board">
+  <div class="board-head">
+    <h2 id="board-title">—</h2>
+    <span class="hint" id="board-hint"></span>
+  </div>
+  <div class="board-body" id="board-body"></div>
+  <div class="trace" id="trace"><span class="empty">bir hücreye tıkla</span></div>
+</div>
+
+<div class="legend">
+  <span><span class="swatch" style="background:#4C8FBF"></span>negatif</span>
+  <span><span class="swatch" style="background:#1E242D"></span>sıfıra yakın</span>
+  <span><span class="swatch" style="background:#D98A3D"></span>pozitif</span>
+  <span><span class="swatch" style="background:#7BE0C6"></span>izlenen</span>
+</div>
+
+<div class="notes">
+  <div class="note">
+    <h3>3D nereden çıkıyor</h3>
+    <p><code>X</code> iki boyutlu: satır = örnek, sütun = bağlamdaki harf. Her hücrede tek bir sayı var. <code>C[X]</code> yazınca her sayının yerine embedding vektörü geçiyor — hücre artık tek sayı değil, bir liste. İşte o derinlik üçüncü boyut.</p>
+  </div>
+  <div class="note">
+    <h3>Düzleştirme neden bedava</h3>
+    <p>Bellekte her örneğin sayıları zaten yan yana duruyor. <code>view</code> veriyi taşımıyor, sadece "kaç sayıda bir satır bitiyor" bilgisini değiştiriyor. Dilimleri kapatıp tek sıraya indirdiğinde gördüğün şey bu.</p>
+  </div>
+  <div class="note">
+    <h3>İz panelinin okuduğu şey</h3>
+    <p>Bir çıktı hücresi, soldaki matrisin bir satırı ile sağdakinin bir sütununun terim terim çarpılıp toplanmasıdır. Panel tam o toplamı yazıyor. Ortadaki boyutun neden eşleşmek zorunda olduğu buradan görünüyor.</p>
+  </div>
+</div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CHARS = ['.','a','d','e','m','n'];
+  var V = CHARS.length;
+  var stoi = {}; CHARS.forEach(function(c,i){ stoi[c]=i; });
+  var WORDS = ['emma','anna','ada','mad'];
+
+  var st = {
+    bs:3, ed:2, nh:4, nShow:4, spread:70,
+    rotX:-18, rotY:-26,
+    stage:1,
+    seed:7,
+    C:null, W1:null, b1:null, W2:null, b2:null,
+    trace:null
+  };
+
+  function rng(){
+    st.seed = (st.seed*1664525 + 1013904223) % 4294967296;
+    return st.seed/4294967296;
+  }
+  function gauss(){
+    var u=Math.max(rng(),1e-9), v=rng();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function mat(r,c){
+    var m=[];
+    for(var i=0;i<r;i++){ var row=[]; for(var j=0;j<c;j++) row.push(round2(gauss())); m.push(row); }
+    return m;
+  }
+  function vec(n){ var v=[]; for(var i=0;i<n;i++) v.push(round2(gauss()*0.3)); return v; }
+  function round2(x){ return Math.round(x*100)/100; }
+  function fmt(x){
+    if(!isFinite(x)) return '—';
+    var s = x.toFixed(2);
+    if(s === '-0.00') s = '0.00';
+    return s;
+  }
+
+  function initParams(){
+    st.C  = mat(V, st.ed);
+    st.W1 = mat(st.bs*st.ed, st.nh);
+    st.b1 = vec(st.nh);
+    st.W2 = mat(st.nh, V);
+    st.b2 = vec(V);
+  }
+  function resizeParams(){
+    var oldC=st.C, oldW1=st.W1, oldW2=st.W2, oldb1=st.b1, oldb2=st.b2;
+    st.C = mat(V, st.ed);
+    st.W1 = mat(st.bs*st.ed, st.nh);
+    st.b1 = vec(st.nh);
+    st.W2 = mat(st.nh, V);
+    st.b2 = vec(V);
+    keep(oldC, st.C); keep(oldW1, st.W1); keep(oldW2, st.W2);
+    for(var i=0;i<Math.min(oldb1.length,st.b1.length);i++) st.b1[i]=oldb1[i];
+    for(var j=0;j<Math.min(oldb2.length,st.b2.length);j++) st.b2[j]=oldb2[j];
+  }
+  function keep(a,b){
+    for(var i=0;i<Math.min(a.length,b.length);i++)
+      for(var j=0;j<Math.min(a[0].length,b[0].length);j++) b[i][j]=a[i][j];
+  }
+
+  function buildX(){
+    var X=[], Y=[], ctxLabels=[];
+    for(var w=0; w<WORDS.length; w++){
+      var ctx=[]; for(var q=0;q<st.bs;q++) ctx.push(0);
+      var word = WORDS[w] + '.';
+      for(var k=0;k<word.length;k++){
+        var ch = word[k];
+        if(!(ch in stoi)) continue;
+        X.push(ctx.slice());
+        Y.push(stoi[ch]);
+        ctxLabels.push(ctx.map(function(i){return CHARS[i];}).join('') + ' → ' + ch);
+        ctx = ctx.slice(1); ctx.push(stoi[ch]);
+      }
+    }
+    return {X:X, Y:Y, L:ctxLabels};
+  }
+
+  function compute(){
+    var d = buildX();
+    var n = Math.min(st.nShow, d.X.length);
+    var X = d.X.slice(0,n), Y = d.Y.slice(0,n), L = d.L.slice(0,n);
+
+    var emb = X.map(function(row){
+      return row.map(function(ix){ return st.C[ix].slice(); });
+    });
+    var F = st.bs*st.ed;
+    var flat = emb.map(function(slice){
+      var out=[];
+      slice.forEach(function(v){ v.forEach(function(x){ out.push(x); }); });
+      return out;
+    });
+    var pre = flat.map(function(row){
+      var out=[];
+      for(var j=0;j<st.nh;j++){
+        var s=st.b1[j];
+        for(var k=0;k<F;k++) s += row[k]*st.W1[k][j];
+        out.push(round2(s));
+      }
+      return out;
+    });
+    var h = pre.map(function(row){ return row.map(function(x){ return round2(Math.tanh(x)); }); });
+    var logits = h.map(function(row){
+      var out=[];
+      for(var j=0;j<V;j++){
+        var s=st.b2[j];
+        for(var k=0;k<st.nh;k++) s += row[k]*st.W2[k][j];
+        out.push(round2(s));
+      }
+      return out;
+    });
+    var probs = logits.map(function(row){
+      var ex = row.map(function(x){ return Math.exp(x); });
+      var sum = ex.reduce(function(a,b){return a+b;},0);
+      return ex.map(function(x){ return round2(x/sum); });
+    });
+    return {X:X,Y:Y,L:L,emb:emb,flat:flat,pre:pre,h:h,logits:logits,probs:probs,F:F,n:n};
+  }
+
+  function heat(x, max){
+    max = max || 2;
+    var t = Math.max(-1, Math.min(1, x/max));
+    var base=[30,36,45];
+    var target = t<0 ? [76,143,191] : [217,138,61];
+    var a = Math.abs(t)*0.75;
+    var r=Math.round(base[0]+(target[0]-base[0])*a);
+    var g=Math.round(base[1]+(target[1]-base[1])*a);
+    var b=Math.round(base[2]+(target[2]-base[2])*a);
+    return 'rgb('+r+','+g+','+b+')';
+  }
+
+  var STAGES = [
+    {key:'X',      nm:'girdi',       op:'X'},
+    {key:'emb',    nm:'embedding',   op:'C[X]'},
+    {key:'flat',   nm:'düzleştirme', op:'.view(-1, F)'},
+    {key:'pre',    nm:'gizli katman',op:'@ W1 + b1'},
+    {key:'h',      nm:'aktivasyon',  op:'.tanh()'},
+    {key:'logits', nm:'çıkış',       op:'@ W2 + b2'},
+    {key:'probs',  nm:'softmax',     op:'exp / sum'}
+  ];
+
+  function shapeOf(k, R){
+    if(k==='X')      return '['+R.n+', '+st.bs+']';
+    if(k==='emb')    return '['+R.n+', '+st.bs+', '+st.ed+']';
+    if(k==='flat')   return '['+R.n+', '+R.F+']';
+    if(k==='pre'||k==='h') return '['+R.n+', '+st.nh+']';
+    return '['+R.n+', '+V+']';
+  }
+
+  function el(tag, cls, txt){
+    var e=document.createElement(tag);
+    if(cls) e.className=cls;
+    if(txt!=null) e.textContent=txt;
+    return e;
+  }
+
+  function renderPipe(R){
+    var p=document.getElementById('pipe');
+    p.innerHTML='';
+    STAGES.forEach(function(s, i){
+      var b=el('button','stage'+(i===st.stage?' sel':''));
+      b.setAttribute('aria-pressed', i===st.stage ? 'true':'false');
+      b.appendChild(el('span','nm',s.nm));
+      b.appendChild(el('span','sh',shapeOf(s.key,R)));
+      b.appendChild(el('span','op',s.op));
+      b.addEventListener('click',function(){ st.stage=i; st.trace=null; draw(); });
+      p.appendChild(b);
+    });
+  }
+
+  function grid(data, opts){
+    opts = opts||{};
+    var cw = opts.cw||46, ch = opts.ch||26;
+    var box = el('div','flat');
+    if(opts.colLabels){
+      var cl = el('div','collabs');
+      if(!opts.rowLabels) cl.style.marginLeft='0';
+      opts.colLabels.forEach(function(t){
+        var c=el('div','collab',t); c.style.width=cw+'px'; cl.appendChild(c);
+      });
+      box.appendChild(cl);
+    }
+    data.forEach(function(row,i){
+      var r=el('div','frow');
+      if(opts.rowLabels){
+        r.appendChild(el('div','rowlab', opts.rowLabels[i]||''));
+      }
+      row.forEach(function(v,j){
+        var c=el('div','gcell');
+        c.style.width=cw+'px'; c.style.height=ch+'px';
+        c.style.background = opts.plain ? 'var(--panel-2)' : heat(v, opts.max);
+        c.textContent = opts.int ? String(v) : fmt(v);
+        if(opts.hot && opts.hot(i,j)){ c.classList.add('hot'); }
+        if(opts.dim && opts.dim(i,j)){ c.classList.add('dim'); }
+        if(opts.onClick){
+          c.classList.add('clickable');
+          c.addEventListener('click',function(){ opts.onClick(i,j); });
+        }
+        if(opts.editable){
+          c.classList.add('edit');
+          c.addEventListener('dblclick',function(ev){
+            ev.stopPropagation();
+            var inp=document.createElement('input');
+            inp.value = v;
+            c.textContent=''; c.appendChild(inp); inp.focus(); inp.select();
+            function commit(){
+              var nv=parseFloat(inp.value);
+              if(isFinite(nv)) opts.editable(i,j,round2(nv));
+              draw();
+            }
+            inp.addEventListener('blur',commit);
+            inp.addEventListener('keydown',function(e){
+              if(e.key==='Enter'){ commit(); }
+              if(e.key==='Escape'){ draw(); }
+            });
+          });
+        }
+        r.appendChild(c);
+      });
+      box.appendChild(r);
+    });
+    return box;
+  }
+
+  function scene3d(emb, R){
+    var wrap = el('div','scene');
+    var cube = el('div','cube');
+    var cw=46, chh=26, gap=3;
+    var sliceW = st.ed*(cw+gap), sliceH = st.bs*(chh+gap);
+    cube.style.width=sliceW+'px'; cube.style.height=sliceH+'px';
+
+    emb.forEach(function(slice, si){
+      var s = el('div','slice');
+      s.style.width=sliceW+'px'; s.style.height=sliceH+'px';
+      var z = (si - (emb.length-1)/2) * st.spread;
+      s.style.transform='translateZ('+z+'px)';
+      slice.forEach(function(v, bi){
+        v.forEach(function(x, ei){
+          var c=el('div','cell');
+          c.style.width=cw+'px'; c.style.height=chh+'px';
+          c.style.left=(ei*(cw+gap))+'px';
+          c.style.top=(bi*(chh+gap))+'px';
+          c.style.background=heat(x);
+          c.textContent=fmt(x);
+          if(st.trace && st.trace.kind==='emb' && st.trace.i===si && st.trace.b===bi){
+            c.classList.add('hot');
+          }
+          c.classList.add('clickable');
+          c.addEventListener('click',function(){
+            st.trace={kind:'emb', i:si, b:bi, e:ei};
+            draw();
+          });
+          s.appendChild(c);
+        });
+      });
+      var tag = el('div','slice-tag', R.L[si]);
+      tag.style.left='0px'; tag.style.top=(sliceH+6)+'px';
+      s.appendChild(tag);
+      cube.appendChild(s);
+    });
+
+    wrap.appendChild(cube);
+    attachDrag(wrap, cube);
+    applyRot(cube);
+    return wrap;
+  }
+
+  var dragCube=null;
+  function applyRot(cube){
+    cube.style.transform='rotateX('+st.rotX+'deg) rotateY('+st.rotY+'deg)';
+  }
+  function attachDrag(wrap, cube){
+    dragCube = cube;
+    var down=false, lx=0, ly=0;
+    function start(x,y){ down=true; lx=x; ly=y; wrap.classList.add('drag'); }
+    function move(x,y){
+      if(!down) return;
+      st.rotY += (x-lx)*0.4;
+      st.rotX -= (y-ly)*0.4;
+      st.rotX = Math.max(-85, Math.min(85, st.rotX));
+      lx=x; ly=y;
+      applyRot(cube);
+    }
+    function end(){ down=false; wrap.classList.remove('drag'); }
+    wrap.addEventListener('mousedown',function(e){ start(e.clientX,e.clientY); });
+    window.addEventListener('mousemove',function(e){ move(e.clientX,e.clientY); });
+    window.addEventListener('mouseup',end);
+    wrap.addEventListener('touchstart',function(e){
+      var t=e.touches[0]; start(t.clientX,t.clientY);
+    },{passive:true});
+    wrap.addEventListener('touchmove',function(e){
+      var t=e.touches[0]; move(t.clientX,t.clientY); e.preventDefault();
+    },{passive:false});
+    wrap.addEventListener('touchend',end);
+  }
+
+  function matmulView(A, B, bias, out, R, opts){
+    var box = el('div','matmul');
+
+    var pA = el('div','mm-part');
+    pA.appendChild(el('h3', null, opts.aName+'  ['+A.length+', '+A[0].length+']'));
+    pA.appendChild(grid(A, {
+      cw:44, ch:24,
+      rowLabels: opts.aRows,
+      hot:function(i,j){
+        return st.trace && st.trace.kind==='mm' && st.trace.i===i;
+      },
+      dim:function(i,j){
+        return st.trace && st.trace.kind==='mm' && st.trace.i!==i;
+      }
+    }));
+    box.appendChild(pA);
+
+    box.appendChild(el('div','mm-op','@'));
+
+    var pB = el('div','mm-part');
+    pB.appendChild(el('h3', null, opts.bName+'  ['+B.length+', '+B[0].length+']'));
+    pB.appendChild(grid(B, {
+      cw:44, ch:24,
+      hot:function(i,j){
+        return st.trace && st.trace.kind==='mm' && st.trace.j===j;
+      },
+      dim:function(i,j){
+        return st.trace && st.trace.kind==='mm' && st.trace.j!==j;
+      },
+      editable:function(i,j,v){ B[i][j]=v; }
+    }));
+    box.appendChild(pB);
+
+    box.appendChild(el('div','mm-op','+'));
+
+    var pC = el('div','mm-part');
+    pC.appendChild(el('h3', null, opts.biasName+'  ['+bias.length+']'));
+    pC.appendChild(grid([bias], {
+      cw:44, ch:24,
+      hot:function(i,j){ return st.trace && st.trace.kind==='mm' && st.trace.j===j; },
+      editable:function(i,j,v){ bias[j]=v; }
+    }));
+    box.appendChild(pC);
+
+    box.appendChild(el('div','mm-op','='));
+
+    var pD = el('div','mm-part');
+    pD.appendChild(el('h3', null, opts.outName+'  ['+out.length+', '+out[0].length+']'));
+    pD.appendChild(grid(out, {
+      cw:44, ch:24,
+      rowLabels: opts.aRows,
+      hot:function(i,j){
+        return st.trace && st.trace.kind==='mm' && st.trace.i===i && st.trace.j===j;
+      },
+      onClick:function(i,j){
+        st.trace={kind:'mm', i:i, j:j, A:A, B:B, bias:bias, out:out, names:opts};
+        draw();
+      }
+    }));
+    box.appendChild(pD);
+
+    return box;
+  }
+
+  function renderTrace(R){
+    var t=document.getElementById('trace');
+    t.innerHTML='';
+    if(!st.trace){
+      t.appendChild(el('span','empty','bir hücreye tıkla — onu üreten sayıları burada göreceksin'));
+      return;
+    }
+    if(st.trace.kind==='emb'){
+      var tr=st.trace;
+      var ix = R.X[tr.i][tr.b];
+      var p = el('p','lead','örnek '+tr.i+', bağlamdaki '+(tr.b+1)+'. harf');
+      t.appendChild(p);
+      var eq = el('div','eq');
+      eq.innerHTML = 'X['+tr.i+']['+tr.b+'] = <span class="k">'+ix+'</span> ("'+CHARS[ix]+'") &nbsp;→&nbsp; C['+ix+'] = [ '
+        + st.C[ix].map(function(x){ return '<span class="res">'+fmt(x)+'</span>'; }).join(', ')
+        + ' ]';
+      t.appendChild(eq);
+      return;
+    }
+    if(st.trace.kind==='mm'){
+      var m=st.trace, A=m.A, B=m.B, bias=m.bias, o=m.names;
+      var terms=[], sum=bias[m.j];
+      for(var k=0;k<A[0].length;k++){
+        var a=A[m.i][k], b=B[k][m.j];
+        sum += a*b;
+        terms.push(fmt(a)+'×'+fmt(b));
+      }
+      var p2=el('p','lead', o.outName+'['+m.i+']['+m.j+'] — soldaki '+m.i+'. satır, sağdaki '+m.j+'. sütun, '+A[0].length+' terim');
+      t.appendChild(p2);
+      var eq2=el('div','eq');
+      eq2.innerHTML = terms.join(' <span class="k">+</span> ')
+        + ' <span class="k">+</span> ' + fmt(bias[m.j]) + ' (bias)'
+        + ' <span class="k">=</span> <span class="res">' + fmt(sum) + '</span>';
+      t.appendChild(eq2);
+      return;
+    }
+    if(st.trace.kind==='tanh'){
+      var tt=st.trace;
+      var p3=el('p','lead','aktivasyon eleman-eleman çalışıyor, şekil değişmiyor');
+      t.appendChild(p3);
+      var eq3=el('div','eq');
+      eq3.innerHTML='tanh(<span class="k">'+fmt(tt.inv)+'</span>) = <span class="res">'+fmt(tt.outv)+'</span>';
+      t.appendChild(eq3);
+      return;
+    }
+    if(st.trace.kind==='soft'){
+      var s=st.trace;
+      var p4=el('p','lead','softmax: her logit üstel alınıp satır toplamına bölünüyor');
+      t.appendChild(p4);
+      var eq4=el('div','eq');
+      eq4.innerHTML='exp(<span class="k">'+fmt(s.lg)+'</span>) = '+fmt(Math.exp(s.lg))
+        +' &nbsp;/&nbsp; satır toplamı '+fmt(s.sum)
+        +' &nbsp;=&nbsp; <span class="res">'+fmt(s.p)+'</span>';
+      t.appendChild(eq4);
+      return;
+    }
+  }
+
+  function draw(){
+    var R = compute();
+    renderPipe(R);
+    var body = document.getElementById('board-body');
+    var title = document.getElementById('board-title');
+    var hint = document.getElementById('board-hint');
+    body.innerHTML='';
+
+    var s = STAGES[st.stage];
+    title.textContent = s.nm + '  ·  ' + s.op + '  ·  ' + shapeOf(s.key, R);
+
+    if(s.key==='X'){
+      hint.textContent = 'her satır bir eğitim örneği, her hücre bir harf indeksi';
+      body.appendChild(grid(R.X, {
+        cw:44, ch:26, plain:true, int:true,
+        rowLabels: R.L,
+        colLabels: Array.from({length:st.bs},function(_,i){ return 'h'+(i+1); }),
+        onClick:function(i,j){ st.trace={kind:'emb', i:i, b:j, e:0}; draw(); }
+      }));
+    }
+
+    else if(s.key==='emb'){
+      hint.textContent = 'sürükleyerek döndür · her dilim bir örnek · hücreye tıkla';
+      body.appendChild(scene3d(R.emb, R));
+    }
+
+    else if(s.key==='flat'){
+      hint.textContent = 'aynı sayılar, tek satıra dizilmiş — bellekte hiçbir şey kıpırdamadı';
+      var labs=[];
+      for(var b=0;b<st.bs;b++) for(var e=0;e<st.ed;e++) labs.push('h'+(b+1)+'·'+(e+1));
+      body.appendChild(grid(R.flat, {
+        cw:44, ch:26, rowLabels:R.L, colLabels:labs
+      }));
+    }
+
+    else if(s.key==='pre'){
+      hint.textContent = 'çıktı hücresine tıkla · W1 ve b1 hücrelerine çift tıklayıp değiştir';
+      body.appendChild(matmulView(R.flat, st.W1, st.b1, R.pre, R, {
+        aName:'flat', bName:'W1', biasName:'b1', outName:'pre',
+        aRows: R.L
+      }));
+    }
+
+    else if(s.key==='h'){
+      hint.textContent = 'her sayı ayrı ayrı tanh\'tan geçiyor — sonuç −1 ile 1 arasında';
+      var wrapH = el('div','matmul');
+      var p1=el('div','mm-part');
+      p1.appendChild(el('h3',null,'pre  ['+R.pre.length+', '+st.nh+']'));
+      p1.appendChild(grid(R.pre,{cw:44,ch:24,rowLabels:R.L,
+        hot:function(i,j){ return st.trace&&st.trace.kind==='tanh'&&st.trace.i===i&&st.trace.j===j; }}));
+      wrapH.appendChild(p1);
+      wrapH.appendChild(el('div','mm-op','→'));
+      var p2=el('div','mm-part');
+      p2.appendChild(el('h3',null,'tanh(pre)  ['+R.h.length+', '+st.nh+']'));
+      p2.appendChild(grid(R.h,{cw:44,ch:24,max:1,
+        hot:function(i,j){ return st.trace&&st.trace.kind==='tanh'&&st.trace.i===i&&st.trace.j===j; },
+        onClick:function(i,j){ st.trace={kind:'tanh',i:i,j:j,inv:R.pre[i][j],outv:R.h[i][j]}; draw(); }}));
+      wrapH.appendChild(p2);
+      body.appendChild(wrapH);
+    }
+
+    else if(s.key==='logits'){
+      hint.textContent = 'gizli katmandan 6 harfin skoruna · W2 ve b2 düzenlenebilir';
+      body.appendChild(matmulView(R.h, st.W2, st.b2, R.logits, R, {
+        aName:'h', bName:'W2', biasName:'b2', outName:'logits',
+        aRows: R.L
+      }));
+    }
+
+    else if(s.key==='probs'){
+      hint.textContent = 'her satırın toplamı 1 · hedef harf yeşil çerçeveli';
+      var sums = R.logits.map(function(row){
+        return row.reduce(function(a,x){ return a+Math.exp(x); },0);
+      });
+      body.appendChild(grid(R.probs, {
+        cw:44, ch:26, max:0.6,
+        rowLabels:R.L, colLabels:CHARS,
+        hot:function(i,j){ return R.Y[i]===j; },
+        onClick:function(i,j){
+          st.trace={kind:'soft', lg:R.logits[i][j], sum:sums[i], p:R.probs[i][j]};
+          draw();
+        }
+      }));
+    }
+
+    renderTrace(R);
+  }
+
+  function bindRange(id, key, outId, after){
+    var r=document.getElementById(id);
+    r.addEventListener('input',function(){
+      st[key]=+r.value;
+      document.getElementById(outId).textContent=r.value;
+      if(after) after();
+      st.trace=null;
+      draw();
+    });
+  }
+  bindRange('bs','bs','v-bs', resizeParams);
+  bindRange('ed','ed','v-ed', resizeParams);
+  bindRange('nh','nh','v-nh', resizeParams);
+  bindRange('ns','nShow','v-ns');
+  bindRange('sp','spread','v-sp');
+
+  document.getElementById('reroll').addEventListener('click',function(){
+    st.seed = Math.floor(Math.random()*4294967296);
+    initParams(); st.trace=null; draw();
+  });
+  document.getElementById('face').addEventListener('click',function(){
+    st.rotX=0; st.rotY=0;
+    if(dragCube) applyRot(dragCube);
+  });
+
+  initParams();
+  draw();
+})();
+</script>
+</body>
+</html>
