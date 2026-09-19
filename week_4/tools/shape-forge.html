@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shape Forge — tensor şekilleriyle mimari kurma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#F4F4F5; --dot:#D4D4D8; --panel:#FFFFFF;
+    --line:#E4E4E7; --line-2:#D4D4D8;
+    --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
+    --wire:#A1A1AA; --live:#3B82F6;
+    --bad:#DC2626; --bad-bg:#FEF2F2; --good:#16A34A;
+    --sans:'Inter Tight', system-ui, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --c-input:#64748B; --c-embed:#8B5CF6; --c-shape:#F59E0B;
+    --c-linear:#3B82F6; --c-act:#14B8A6; --c-norm:#EC4899; --c-out:#F43F5E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+  body{font-family:var(--sans);color:var(--ink);font-size:14px;
+    -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;height:100vh;}
+
+  .top{display:flex;align-items:center;gap:14px;padding:10px 16px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex:none;}
+  .top h1{font-size:15px;font-weight:600;margin:0;letter-spacing:-0.01em;}
+  .top .sub{font-size:12.5px;color:var(--ink-3);}
+  .top .sp{flex:1;}
+  .btn{font-family:var(--sans);font-size:13px;background:var(--panel);color:var(--ink-2);
+    border:1px solid var(--line-2);border-radius:6px;padding:6px 11px;cursor:pointer;}
+  .btn:hover{background:var(--canvas);color:var(--ink);}
+  .btn:focus-visible{outline:2px solid var(--live);outline-offset:1px;}
+
+  .main{display:flex;flex:1;min-height:0;}
+
+  .side{width:186px;flex:none;background:var(--panel);
+    border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px;}
+  .side h2{font-size:11.5px;font-weight:500;color:var(--ink-3);margin:0 0 8px 4px;}
+  .side h2:not(:first-child){margin-top:18px;}
+  .chip{display:flex;align-items:center;gap:9px;padding:7px 9px;margin-bottom:4px;
+    border:1px solid var(--line);border-radius:7px;cursor:pointer;background:var(--panel);
+    width:100%;font-family:var(--sans);font-size:13px;color:var(--ink);text-align:left;}
+  .chip:hover{border-color:var(--line-2);background:var(--canvas);}
+  .sq{width:20px;height:20px;border-radius:5px;flex:none;display:flex;
+    align-items:center;justify-content:center;font-family:var(--mono);
+    font-size:10px;color:#fff;font-weight:500;}
+
+  .cw{flex:1;position:relative;overflow:hidden;background:var(--canvas);cursor:grab;}
+  .cw.panning{cursor:grabbing;}
+  #grid{position:absolute;inset:0;}
+  #stage{position:absolute;top:0;left:0;transform-origin:0 0;}
+  #svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;width:1px;height:1px;}
+  #svg path{pointer-events:stroke;cursor:pointer;}
+
+  .zoom{position:absolute;right:12px;bottom:12px;display:flex;gap:4px;z-index:5;}
+  .zoom button{width:28px;height:28px;border:1px solid var(--line-2);background:var(--panel);
+    border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--ink-2);
+    display:flex;align-items:center;justify-content:center;padding:0;}
+  .zoom button:hover{background:var(--canvas);}
+
+  .node{position:absolute;width:200px;background:var(--panel);
+    border:1px solid var(--line);border-radius:9px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);user-select:none;}
+  .node.sel{border-color:var(--live);box-shadow:0 0 0 2px rgba(59,130,246,.15);}
+  .node.err{border-color:var(--bad);}
+  .node-head{display:flex;align-items:center;gap:9px;padding:9px 10px;cursor:grab;}
+  .node-head:active{cursor:grabbing;}
+  .node-head .sq{width:24px;height:24px;font-size:10px;}
+  .node-head .nm{font-size:13px;font-weight:500;line-height:1.2;}
+  .node-head .pm{font-size:11px;color:var(--ink-3);font-family:var(--mono);}
+  .node-shape{border-top:1px solid var(--line);padding:7px 10px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+    display:flex;justify-content:space-between;gap:8px;}
+  .node-shape .out{color:var(--ink);font-weight:500;}
+  .node-err{border-top:1px solid var(--line);padding:7px 10px;background:var(--bad-bg);
+    color:var(--bad);font-size:11.5px;line-height:1.45;border-radius:0 0 8px 8px;}
+  .port{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--panel);
+    border:2px solid var(--line-2);top:20px;cursor:crosshair;}
+  .port.in{left:-7px;} .port.out{right:-7px;}
+  .port:hover,.port.armed{border-color:var(--live);background:var(--live);}
+
+  .insp{width:250px;flex:none;background:var(--panel);
+    border-left:1px solid var(--line);overflow-y:auto;padding:14px 14px 24px;}
+  .insp h2{font-size:13px;font-weight:600;margin:0 0 3px;}
+  .insp .kind{font-size:11.5px;color:var(--ink-3);font-family:var(--mono);margin-bottom:14px;}
+  .insp .empty{font-size:13px;color:var(--ink-3);line-height:1.6;}
+  .insp .what{font-size:12.5px;color:var(--ink-2);line-height:1.55;margin:0 0 10px;}
+  .viz{background:var(--canvas);border:1px solid var(--line);border-radius:7px;
+    padding:8px;margin-bottom:14px;}
+  .viz svg{display:block;width:100%;height:auto;}
+  .fld{margin-bottom:10px;}
+  .fld label{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px;}
+  .spin{display:flex;gap:0;}
+  .spin button{width:30px;border:1px solid var(--line-2);background:var(--panel);
+    cursor:pointer;font-family:var(--mono);font-size:14px;color:var(--ink-2);padding:0;}
+  .spin button:first-child{border-radius:6px 0 0 6px;}
+  .spin button:last-child{border-radius:0 6px 6px 0;}
+  .spin button:hover{background:var(--canvas);color:var(--ink);}
+  .spin input{flex:1;min-width:0;padding:6px 8px;font-family:var(--mono);font-size:13px;
+    border:1px solid var(--line-2);border-left:0;border-right:0;background:var(--panel);
+    color:var(--ink);text-align:center;}
+  .spin input:focus{outline:2px solid var(--live);outline-offset:-2px;}
+  .insp hr{border:0;border-top:1px solid var(--line);margin:14px 0;}
+  .stat{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;}
+  .stat .v{font-family:var(--mono);color:var(--ink);}
+  .del{width:100%;margin-top:12px;padding:7px;border:1px solid var(--line-2);
+    border-radius:6px;background:var(--panel);color:var(--bad);
+    font-family:var(--sans);font-size:13px;cursor:pointer;}
+  .del:hover{background:var(--bad-bg);border-color:var(--bad);}
+
+  .foot{display:flex;align-items:center;gap:18px;padding:8px 16px;background:var(--panel);
+    border-top:1px solid var(--line);flex:none;font-size:12.5px;color:var(--ink-2);}
+  .foot .v{font-family:var(--mono);color:var(--ink);}
+  .foot .ok{color:var(--good);} .foot .no{color:var(--bad);}
+  .foot .hint{margin-left:auto;color:var(--ink-3);font-size:12px;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>shape forge</h1>
+  <span class="sub">blokları bağla, şekiller kendiliğinden yayılsın</span>
+  <span class="sp"></span>
+  <button class="btn" id="mlp">Karpathy MLP'si</button>
+  <button class="btn" id="clear">temizle</button>
+</div>
+
+<div class="main">
+  <div class="side" id="side"></div>
+  <div class="cw" id="cw">
+    <canvas id="grid"></canvas>
+    <div id="stage">
+      <svg id="svg"></svg>
+      <div id="nodes"></div>
+    </div>
+    <div class="zoom">
+      <button id="zout" aria-label="uzaklas">&minus;</button>
+      <button id="zfit" aria-label="sigdir">&#9633;</button>
+      <button id="zin" aria-label="yakinlas">+</button>
+    </div>
+  </div>
+  <div class="insp" id="insp"></div>
+</div>
+
+<div class="foot">
+  <span>blok <span class="v" id="f-nodes">0</span></span>
+  <span>parametre <span class="v" id="f-params">0</span></span>
+  <span>durum <span class="v" id="f-state">&mdash;</span></span>
+  <span class="hint">bos alani surukle &middot; tekerlek ile yakinlas</span>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  function rnd(seed){ var s=seed; return function(){ s=(s*1664525+1013904223)%4294967296; return s/4294967296; }; }
+  function gaussSeq(n, seed, sd){
+    var r=rnd(seed), out=[];
+    for(var i=0;i<n;i++){
+      var u=Math.max(r(),1e-9), v=r();
+      out.push(Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)*(sd||1));
+    }
+    return out;
+  }
+
+  var TYPES = {
+    input:{ nm:'Girdi', sq:'X', col:'var(--c-input)', cat:'veri',
+      what:'Ham veri: her satir bir ornek, her hucre bir harf indeksi.',
+      params:{batch:32, block_size:3},
+      fields:[['batch','batch boyutu',1,512],['block_size','block_size (baglam)',1,8]],
+      shape:function(p){ return ['B', p.block_size]; },
+      pcount:function(){ return 0; }, check:function(){ return null; } },
+
+    embedding:{ nm:'Embedding', sq:'C', col:'var(--c-embed)', cat:'katman',
+      what:'Her indeksin yerine tablodan bir vektor cekiliyor. Boyut sayisi bir artiyor.',
+      params:{vocab_size:27, n_embd:10},
+      fields:[['vocab_size','vocab_size (alfabe)',2,128],['n_embd','n_embd (vektor boyu)',1,64]],
+      shape:function(p,i){ return i?[i[0],i[1],p.n_embd]:null; },
+      pcount:function(p){ return p.vocab_size*p.n_embd; },
+      check:function(p,i){ if(!i) return 'girdi bagli degil';
+        if(i.length!==2) return 'girdi 2 boyutlu olmali, gelen '+i.length+' boyutlu'; return null; } },
+
+    flatten:{ nm:'Flatten', sq:'F', col:'var(--c-shape)', cat:'sekil',
+      what:'Vektorler yan yana diziliyor. Bellekte hicbir sey tasinmiyor, sadece gruplama degisiyor.',
+      params:{}, fields:[],
+      shape:function(p,i){ return (i&&i.length===3)?[i[0],i[1]*i[2]]:null; },
+      pcount:function(){ return 0; },
+      check:function(p,i){ if(!i) return 'girdi bagli degil';
+        if(i.length!==3) return 'girdi 3 boyutlu olmali, gelen '+i.length+' boyutlu'; return null; } },
+
+    linear:{ nm:'Linear', sq:'W', col:'var(--c-linear)', cat:'katman',
+      what:'Matris carpimi. Her noron butun girdileri kendi agirliklariyla carpip topluyor.',
+      params:{fan_out:200, bias:1},
+      fields:[['fan_out','fan_out (noron sayisi)',1,512],['bias','bias var mi (0/1)',0,1]],
+      shape:function(p,i){ return i?[i[0],p.fan_out]:null; },
+      pcount:function(p,i){ if(!i||i.length!==2) return 0;
+        return i[1]*p.fan_out + (p.bias?p.fan_out:0); },
+      check:function(p,i){ if(!i) return 'girdi bagli degil';
+        if(i.length!==2) return 'girdi 2 boyutlu olmali, once Flatten koy'; return null; } },
+
+    batchnorm:{ nm:'BatchNorm', sq:'BN', col:'var(--c-norm)', cat:'aktivasyon',
+      what:'Batch boyunca ortalamayi cikarip standart sapmaya boluyor. Dagilim zorla sifir ortalamali, birim varyansli oluyor.',
+      params:{}, fields:[],
+      shape:function(p,i){ return i?i.slice():null; },
+      pcount:function(p,i){ return (i&&i.length===2)?2*i[1]:0; },
+      check:function(p,i){ if(!i) return 'girdi bagli degil';
+        if(i.length!==2) return 'girdi 2 boyutlu olmali'; return null; } },
+
+    tanh:{ nm:'Tanh', sq:'T', col:'var(--c-act)', cat:'aktivasyon',
+      what:'Her sayiyi tek tek -1 ile 1 arasina sikistiriyor. Sekil degismiyor. Uclara yapisan degerlerde turev sifira yaklasiyor.',
+      params:{}, fields:[],
+      shape:function(p,i){ return i?i.slice():null; },
+      pcount:function(){ return 0; },
+      check:function(p,i){ return i?null:'girdi bagli degil'; } },
+
+    softmax:{ nm:'Softmax + NLL', sq:'S', col:'var(--c-out)', cat:'cikis',
+      what:'Skorlar ustel alinip satir toplamina bolunuyor. Her satir toplami 1 olan bir olasilik dagilimi cikiyor.',
+      params:{vocab_size:27},
+      fields:[['vocab_size','vocab_size (alfabe)',2,128]],
+      shape:function(p,i){ return i?i.slice():null; },
+      pcount:function(){ return 0; },
+      check:function(p,i){ if(!i) return 'girdi bagli degil';
+        if(i.length!==2) return 'girdi 2 boyutlu olmali';
+        if(i[1]!==p.vocab_size) return 'son boyut '+i[1]+', vocab_size '+p.vocab_size+' olmali';
+        return null; } }
+  };
+
+  var st={nodes:[],edges:[],sel:null,nextId:1,drag:null,wire:null,pan:null};
+  var view={x:40,y:30,k:1};
+
+  var nodesEl=document.getElementById('nodes'),
+      svgEl=document.getElementById('svg'),
+      stageEl=document.getElementById('stage'),
+      cwEl=document.getElementById('cw'),
+      gridEl=document.getElementById('grid');
+
+  function toWorld(cx,cy){
+    var r=cwEl.getBoundingClientRect();
+    return { x:(cx-r.left-view.x)/view.k, y:(cy-r.top-view.y)/view.k };
+  }
+
+  function drawGrid(){
+    var r=cwEl.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    gridEl.width=r.width*dpr; gridEl.height=r.height*dpr;
+    gridEl.style.width=r.width+'px'; gridEl.style.height=r.height+'px';
+    var c=gridEl.getContext('2d');
+    c.setTransform(dpr,0,0,dpr,0,0);
+    c.clearRect(0,0,r.width,r.height);
+    var step=18*view.k;
+    if(step<7) return;
+    var ox=((view.x%step)+step)%step, oy=((view.y%step)+step)%step;
+    c.fillStyle='#D4D4D8';
+    for(var x=ox;x<r.width;x+=step) for(var y=oy;y<r.height;y+=step){
+      c.beginPath(); c.arc(x,y,1,0,6.283); c.fill();
+    }
+  }
+  function applyView(){
+    stageEl.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.k+')';
+    drawGrid();
+  }
+
+  function buildSide(){
+    var side=document.getElementById('side'), cats={};
+    Object.keys(TYPES).forEach(function(k){ (cats[TYPES[k].cat]=cats[TYPES[k].cat]||[]).push(k); });
+    side.innerHTML='';
+    Object.keys(cats).forEach(function(c){
+      var h=document.createElement('h2'); h.textContent=c; side.appendChild(h);
+      cats[c].forEach(function(k){
+        var t=TYPES[k], b=document.createElement('button');
+        b.className='chip';
+        b.innerHTML='<span class="sq" style="background:'+t.col+'">'+t.sq+'</span>'+t.nm;
+        b.addEventListener('click',function(){ addNode(k); });
+        side.appendChild(b);
+      });
+    });
+  }
+
+  function addNode(kind,x,y){
+    var p={}; Object.keys(TYPES[kind].params).forEach(function(k){ p[k]=TYPES[kind].params[k]; });
+    var n={id:st.nextId++,kind:kind,
+      x:x!=null?x:(-view.x/view.k)+80+(st.nodes.length%4)*36,
+      y:y!=null?y:(-view.y/view.k)+70+(st.nodes.length%6)*32,
+      params:p};
+    st.nodes.push(n); st.sel=n.id; render(); return n;
+  }
+
+  function inputOf(id){
+    for(var i=0;i<st.edges.length;i++) if(st.edges[i].to===id) return st.edges[i].from;
+    return null;
+  }
+
+  function compute(){
+    var res={}, guard=0;
+    function walk(id){
+      if(res[id]) return res[id];
+      if(guard++>400) return {shape:null,err:'dongu var'};
+      var n=st.nodes.find(function(q){return q.id===id;});
+      if(!n) return {shape:null,err:null};
+      var src=inputOf(id), inShape=null;
+      if(src!=null) inShape=walk(src).shape;
+      var T=TYPES[n.kind], err=T.check(n.params,inShape);
+      res[id]={ shape: err?null:T.shape(n.params,inShape), inShape:inShape,
+                err:err, pcount: err?0:T.pcount(n.params,inShape) };
+      return res[id];
+    }
+    st.nodes.forEach(function(n){ walk(n.id); });
+    return res;
+  }
+
+  function shapeStr(s){ return s?('['+s.join(', ')+']'):'\u2014'; }
+
+  function renderNodes(R){
+    nodesEl.innerHTML='';
+    st.nodes.forEach(function(n){
+      var T=TYPES[n.kind], r=R[n.id]||{};
+      var d=document.createElement('div');
+      d.className='node'+(st.sel===n.id?' sel':'')+(r.err?' err':'');
+      d.style.left=n.x+'px'; d.style.top=n.y+'px'; d.dataset.id=n.id;
+      var pm=r.pcount?r.pcount.toLocaleString('tr-TR')+' par':'';
+      var h='';
+      if(n.kind!=='input') h+='<div class="port in" data-port="in"></div>';
+      h+='<div class="port out" data-port="out"></div>';
+      h+='<div class="node-head"><span class="sq" style="background:'+T.col+'">'+T.sq+'</span>'
+        +'<span><span class="nm">'+T.nm+'</span><br><span class="pm">'+pm+'</span></span></div>';
+      h+='<div class="node-shape"><span>'+shapeStr(r.inShape)+'</span>'
+        +'<span class="out">'+shapeStr(r.shape)+'</span></div>';
+      if(r.err) h+='<div class="node-err">'+r.err+'</div>';
+      d.innerHTML=h;
+
+      d.querySelector('.node-head').addEventListener('mousedown',function(e){
+        e.stopPropagation();
+        var w=toWorld(e.clientX,e.clientY);
+        st.sel=n.id; st.drag={id:n.id,dx:w.x-n.x,dy:w.y-n.y};
+        render(); e.preventDefault();
+      });
+      d.addEventListener('mousedown',function(e){
+        e.stopPropagation();
+        if(st.sel!==n.id){ st.sel=n.id; render(); }
+      });
+
+      Array.prototype.forEach.call(d.querySelectorAll('.port'),function(p){
+        p.addEventListener('mousedown',function(e){
+          e.stopPropagation(); e.preventDefault();
+          var w=toWorld(e.clientX,e.clientY);
+          st.wire={id:n.id,port:p.dataset.port,x:w.x,y:w.y};
+          p.classList.add('armed');
+        });
+        p.addEventListener('mouseup',function(e){
+          if(!st.wire) return;
+          e.stopPropagation();
+          var a=st.wire,b={id:n.id,port:p.dataset.port};
+          st.wire=null;
+          if(a.id===b.id){ render(); return; }
+          var from,to;
+          if(a.port==='out'&&b.port==='in'){from=a.id;to=b.id;}
+          else if(a.port==='in'&&b.port==='out'){from=b.id;to=a.id;}
+          else { render(); return; }
+          st.edges=st.edges.filter(function(ed){return ed.to!==to;});
+          st.edges.push({from:from,to:to});
+          render();
+        });
+      });
+      nodesEl.appendChild(d);
+    });
+  }
+
+  function portPos(id,which){
+    var el=nodesEl.querySelector('.node[data-id="'+id+'"]');
+    var n=st.nodes.find(function(q){return q.id===id;});
+    if(!el||!n) return null;
+    return { x: which==='out'? n.x+el.offsetWidth : n.x, y:n.y+26 };
+  }
+
+  function drawWires(R){
+    var s='';
+    st.edges.forEach(function(ed,i){
+      var a=portPos(ed.from,'out'), b=portPos(ed.to,'in');
+      if(!a||!b) return;
+      var bad=R[ed.to]&&R[ed.to].err;
+      var dx=Math.max(40,Math.abs(b.x-a.x)*0.5);
+      s+='<path d="M '+a.x+' '+a.y+' C '+(a.x+dx)+' '+a.y+', '+(b.x-dx)+' '+b.y+', '+b.x+' '+b.y
+        +'" fill="none" stroke="'+(bad?'#DC2626':'#A1A1AA')+'" stroke-width="2" data-i="'+i+'"></path>';
+    });
+    if(st.wire){
+      var p=portPos(st.wire.id,st.wire.port);
+      if(p) s+='<path d="M '+p.x+' '+p.y+' L '+st.wire.x+' '+st.wire.y
+        +'" fill="none" stroke="#3B82F6" stroke-width="2" stroke-dasharray="4 3"></path>';
+    }
+    svgEl.innerHTML=s;
+    Array.prototype.forEach.call(svgEl.querySelectorAll('path[data-i]'),function(p){
+      p.addEventListener('click',function(){ st.edges.splice(+p.dataset.i,1); render(); });
+    });
+  }
+
+  function cells(vals,x,y,w,h,gap,col){
+    var s='';
+    vals.forEach(function(v,i){
+      s+='<rect x="'+(x+i*(w+gap))+'" y="'+y+'" width="'+w+'" height="'+h
+        +'" rx="2" fill="'+(col||'#E9E9EC')+'" stroke="#D4D4D8" stroke-width="0.5"/>';
+      if(v) s+='<text x="'+(x+i*(w+gap)+w/2)+'" y="'+(y+h/2)
+        +'" text-anchor="middle" dominant-baseline="central" font-family="monospace" font-size="8" fill="#52525B">'+v+'</text>';
+    });
+    return s;
+  }
+  function hist(vals,x,y,w,h,lo,hi,col){
+    var bins=16, c=[],i;
+    for(i=0;i<bins;i++) c.push(0);
+    vals.forEach(function(v){
+      var t=Math.floor((v-lo)/(hi-lo)*bins);
+      if(t>=0&&t<bins) c[t]++;
+    });
+    var mx=Math.max.apply(null,c)||1, bw=w/bins, s='';
+    c.forEach(function(v,j){
+      var bh=(v/mx)*h;
+      s+='<rect x="'+(x+j*bw)+'" y="'+(y+h-bh)+'" width="'+(bw-1)+'" height="'+bh+'" fill="'+col+'" rx="1"/>';
+    });
+    s+='<line x1="'+x+'" y1="'+(y+h)+'" x2="'+(x+w)+'" y2="'+(y+h)+'" stroke="#D4D4D8" stroke-width="0.5"/>';
+    return s;
+  }
+  function lab(t,x,y,anchor){
+    return '<text x="'+x+'" y="'+y+'" text-anchor="'+(anchor||'start')
+      +'" font-family="sans-serif" font-size="9" fill="#A1A1AA">'+t+'</text>';
+  }
+  function fill(n,v){ var a=[],i; for(i=0;i<n;i++) a.push(v||''); return a; }
+
+  function viz(kind,n,r){
+    var W=222,H=84,s='',i;
+    if(kind==='input'){
+      var b=Math.min(n.params.block_size,6);
+      var rows=[['0','0','5','13','13','1'],['0','5','13','13','1','0'],['5','13','13','1','0','2']];
+      s+=lab('her satir bir ornek',0,10);
+      for(i=0;i<3;i++) s+=cells(rows[i].slice(0,b),0,18+i*22,26,16,3);
+    }
+    else if(kind==='embedding'){
+      var E=Math.min(n.params.n_embd,8);
+      s+=lab('indeks',0,10)+lab('tablonun o satiri',56,10);
+      s+=cells(['13'],0,16,26,16,3,'#EDE9FE');
+      s+='<path d="M32 24 L48 24" stroke="#A1A1AA" stroke-width="1"/>';
+      s+=cells(fill(E),56,16,17,16,2,'#DDD6FE');
+      s+=lab('tablo '+n.params.vocab_size+' x '+n.params.n_embd,0,52);
+      s+='<rect x="0" y="58" width="70" height="20" rx="3" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="0.5"/>';
+      s+='<text x="35" y="68" text-anchor="middle" dominant-baseline="central" font-family="monospace" font-size="9" fill="#7C3AED">C</text>';
+    }
+    else if(kind==='flatten'){
+      var E2=Math.min((r.inShape&&r.inShape[2])||2,4), B2=Math.min((r.inShape&&r.inShape[1])||3,4);
+      s+=lab('once: harf basina ayri vektor',0,10);
+      for(i=0;i<B2;i++) s+=cells(fill(E2),i*(E2*15+10),16,13,14,2,'#FEF3C7');
+      s+=lab('sonra: hepsi tek satir',0,52);
+      s+=cells(fill(Math.min(B2*E2,14)),0,58,13,14,2,'#FCD34D');
+    }
+    else if(kind==='linear'){
+      var F=(r.inShape&&r.inShape[1])||0;
+      s+=lab('girdi 1 x '+F,0,10);
+      s+=cells(fill(Math.min(F,9)),0,16,14,14,2,'#DBEAFE');
+      s+='<text x="0" y="46" font-family="monospace" font-size="10" fill="#52525B">@ W ['+F+' x '+n.params.fan_out+']'+(n.params.bias?' + b':'')+'</text>';
+      s+=lab('cikti 1 x '+n.params.fan_out,0,62);
+      s+=cells(fill(Math.min(n.params.fan_out,9)),0,68,14,14,2,'#93C5FD');
+    }
+    else if(kind==='tanh'){
+      s+='<line x1="8" y1="42" x2="214" y2="42" stroke="#D4D4D8" stroke-width="0.5"/>';
+      s+='<line x1="111" y1="6" x2="111" y2="78" stroke="#D4D4D8" stroke-width="0.5"/>';
+      var d='M';
+      for(i=0;i<=40;i++){
+        var xx=-4+i*0.2, yy=Math.tanh(xx);
+        d+=(i?' L ':' ')+(111+xx*25).toFixed(1)+' '+(42-yy*32).toFixed(1);
+      }
+      s+='<path d="'+d+'" fill="none" stroke="#14B8A6" stroke-width="1.6"/>';
+      s+=lab('+1',116,14)+lab('-1',116,76);
+      s+=lab('uclarda turev yaklasik 0',8,78);
+    }
+    else if(kind==='batchnorm'){
+      var a=gaussSeq(400,11,2.6), b3=a.map(function(v){return v/2.6;});
+      s+=lab('once  sapma 2.6',0,10);
+      s+=hist(a,0,16,100,26,-8,8,'#FBCFE8');
+      s+=lab('sonra  sapma 1',118,10);
+      s+=hist(b3,118,16,100,26,-8,8,'#EC4899');
+      s+=lab('tanh doyuyor',0,58)+lab('tanh egimli bolgede',118,58);
+      s+=lab('ayni veri, zorla normalize edilmis',0,76);
+    }
+    else if(kind==='softmax'){
+      var lg=[-1.9,2.3,-0.8,0.4,1.2,-2.4,0.1], ex=lg.map(Math.exp), sm=0;
+      ex.forEach(function(v){ sm+=v; });
+      var pr=ex.map(function(v){ return v/sm; });
+      s+=lab('logits (her sayi olabilir)',0,10);
+      lg.forEach(function(v,j){
+        var hg=Math.abs(v)*7;
+        s+='<rect x="'+(j*16)+'" y="'+(v>0?32-hg:32)+'" width="13" height="'+hg+'" fill="#FDA4AF" rx="1"/>';
+      });
+      s+='<line x1="0" y1="32" x2="112" y2="32" stroke="#D4D4D8" stroke-width="0.5"/>';
+      s+=lab('olasilik (toplam 1)',124,10);
+      pr.forEach(function(v,j){
+        var hg=v*54;
+        s+='<rect x="'+(124+j*16)+'" y="'+(58-hg)+'" width="13" height="'+hg+'" fill="#F43F5E" rx="1"/>';
+      });
+      s+='<line x1="124" y1="58" x2="236" y2="58" stroke="#D4D4D8" stroke-width="0.5"/>';
+      s+=lab('hepsi pozitif, toplamlari 1',0,78);
+    }
+    return '<svg viewBox="0 0 '+W+' '+H+'" role="img"><title>'+TYPES[kind].nm+'</title>'+s+'</svg>';
+  }
+
+  function renderInsp(R){
+    var box=document.getElementById('insp');
+    var n=st.nodes.find(function(q){return q.id===st.sel;});
+    if(!n){
+      box.innerHTML='<p class="empty">Soldan blok ekle. Cikis portunu bir sonrakinin giris portuna surukle. Sekiller kendiliginden yayilir, uyusmayan yer kirmiziya doner.</p>';
+      return;
+    }
+    var T=TYPES[n.kind], r=R[n.id]||{};
+    var h='<h2>'+T.nm+'</h2><div class="kind">'+n.kind+' #'+n.id+'</div>';
+    h+='<p class="what">'+T.what+'</p>';
+    h+='<div class="viz">'+viz(n.kind,n,r)+'</div>';
+    T.fields.forEach(function(f){
+      h+='<div class="fld"><label>'+f[1]+'</label><div class="spin">'
+        +'<button data-k="'+f[0]+'" data-d="-1">&minus;</button>'
+        +'<input type="number" data-k="'+f[0]+'" value="'+n.params[f[0]]+'" min="'+f[2]+'" max="'+f[3]+'">'
+        +'<button data-k="'+f[0]+'" data-d="1">+</button></div></div>';
+    });
+    h+='<hr>';
+    h+='<div class="stat"><span>girdi</span><span class="v">'+shapeStr(r.inShape)+'</span></div>';
+    h+='<div class="stat"><span>cikti</span><span class="v">'+shapeStr(r.shape)+'</span></div>';
+    h+='<div class="stat"><span>parametre</span><span class="v">'+(r.pcount||0).toLocaleString('tr-TR')+'</span></div>';
+    h+='<button class="del">blogu sil</button>';
+    box.innerHTML=h;
+
+    Array.prototype.forEach.call(box.querySelectorAll('.spin input'),function(inp){
+      inp.addEventListener('input',function(){
+        var v=parseInt(inp.value,10);
+        if(isFinite(v)){ n.params[inp.dataset.k]=v; quick(); }
+      });
+      inp.addEventListener('blur',function(){ render(); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.spin button'),function(b){
+      b.addEventListener('click',function(){
+        var k=b.dataset.k, f=null;
+        T.fields.forEach(function(q){ if(q[0]===k) f=q; });
+        var v=n.params[k]+(+b.dataset.d);
+        if(v<f[2]) v=f[2];
+        if(v>f[3]) v=f[3];
+        n.params[k]=v; render();
+      });
+    });
+    var del=box.querySelector('.del');
+    if(del) del.addEventListener('click',function(){
+      st.edges=st.edges.filter(function(e){return e.from!==n.id&&e.to!==n.id;});
+      st.nodes=st.nodes.filter(function(q){return q.id!==n.id;});
+      st.sel=null; render();
+    });
+  }
+
+  function renderFoot(R){
+    var total=0,bad=0;
+    st.nodes.forEach(function(n){ var r=R[n.id]||{}; total+=r.pcount||0; if(r.err) bad++; });
+    document.getElementById('f-nodes').textContent=st.nodes.length;
+    document.getElementById('f-params').textContent=total.toLocaleString('tr-TR');
+    var s=document.getElementById('f-state');
+    if(!st.nodes.length){ s.textContent='\u2014'; s.className='v'; }
+    else if(bad){ s.textContent=bad+' blokta sekil hatasi'; s.className='v no'; }
+    else { s.textContent='sekiller tutuyor'; s.className='v ok'; }
+  }
+
+  function quick(){
+    var R=compute();
+    renderNodes(R); drawWires(R); renderFoot(R);
+    var box=document.getElementById('insp');
+    var n=st.nodes.find(function(q){return q.id===st.sel;});
+    if(!n) return;
+    var r=R[n.id]||{}, sts=box.querySelectorAll('.stat .v');
+    if(sts.length>=3){
+      sts[0].textContent=shapeStr(r.inShape);
+      sts[1].textContent=shapeStr(r.shape);
+      sts[2].textContent=(r.pcount||0).toLocaleString('tr-TR');
+    }
+  }
+  function render(){
+    var R=compute();
+    renderNodes(R); drawWires(R); renderInsp(R); renderFoot(R);
+  }
+
+  cwEl.addEventListener('mousedown',function(e){
+    if(e.target.closest('.node')||e.target.closest('.zoom')) return;
+    st.pan={x:e.clientX-view.x,y:e.clientY-view.y};
+    cwEl.classList.add('panning');
+    if(st.sel!=null){ st.sel=null; render(); }
+  });
+  window.addEventListener('mousemove',function(e){
+    if(st.pan){ view.x=e.clientX-st.pan.x; view.y=e.clientY-st.pan.y; applyView(); return; }
+    if(st.drag){
+      var w=toWorld(e.clientX,e.clientY);
+      var n=st.nodes.find(function(q){return q.id===st.drag.id;});
+      if(n){ n.x=w.x-st.drag.dx; n.y=w.y-st.drag.dy; quick(); }
+    }
+    if(st.wire){
+      var w2=toWorld(e.clientX,e.clientY);
+      st.wire.x=w2.x; st.wire.y=w2.y; drawWires(compute());
+    }
+  });
+  window.addEventListener('mouseup',function(){
+    st.pan=null; cwEl.classList.remove('panning');
+    if(st.drag){ st.drag=null; render(); }
+    if(st.wire){ st.wire=null; render(); }
+  });
+
+  cwEl.addEventListener('wheel',function(e){
+    e.preventDefault();
+    var r=cwEl.getBoundingClientRect(),
+        mx=e.clientX-r.left, my=e.clientY-r.top,
+        f=Math.exp(-e.deltaY*0.0016),
+        nk=Math.max(0.3,Math.min(2.4,view.k*f));
+    view.x=mx-(mx-view.x)*(nk/view.k);
+    view.y=my-(my-view.y)*(nk/view.k);
+    view.k=nk; applyView();
+  },{passive:false});
+
+  function zoomBy(f){
+    var r=cwEl.getBoundingClientRect(), mx=r.width/2, my=r.height/2;
+    var nk=Math.max(0.3,Math.min(2.4,view.k*f));
+    view.x=mx-(mx-view.x)*(nk/view.k);
+    view.y=my-(my-view.y)*(nk/view.k);
+    view.k=nk; applyView();
+  }
+  document.getElementById('zin').addEventListener('click',function(){ zoomBy(1.2); });
+  document.getElementById('zout').addEventListener('click',function(){ zoomBy(1/1.2); });
+  function fitView(){
+    if(!st.nodes.length){ view={x:40,y:30,k:1}; applyView(); return; }
+    var x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    st.nodes.forEach(function(n){
+      x1=Math.min(x1,n.x); y1=Math.min(y1,n.y);
+      x2=Math.max(x2,n.x+200); y2=Math.max(y2,n.y+130);
+    });
+    var r=cwEl.getBoundingClientRect(), pad=36;
+    var k=Math.min((r.width-pad*2)/(x2-x1),(r.height-pad*2)/(y2-y1),1.4);
+    view.k=Math.max(0.3,k);
+    view.x=pad-x1*view.k+((r.width-pad*2)-(x2-x1)*view.k)/2;
+    view.y=pad-y1*view.k+((r.height-pad*2)-(y2-y1)*view.k)/2;
+    applyView();
+  }
+  document.getElementById('zfit').addEventListener('click',fitView);
+
+  document.getElementById('clear').addEventListener('click',function(){
+    st.nodes=[];st.edges=[];st.sel=null;render();
+  });
+  function loadMLP(){
+    st.nodes=[];st.edges=[];st.nextId=1;
+    var seq=['input','embedding','flatten','linear','batchnorm','tanh','linear','softmax'],ids=[],i;
+    seq.forEach(function(k,j){
+      ids.push(addNode(k,40+(j%4)*250,40+Math.floor(j/4)*210).id);
+    });
+    st.nodes.forEach(function(q){ if(q.id===ids[6]) q.params.fan_out=27; });
+    for(i=1;i<ids.length;i++) st.edges.push({from:ids[i-1],to:ids[i]});
+    st.sel=null; render(); fitView();
+  }
+  document.getElementById('mlp').addEventListener('click',loadMLP);
+
+  window.addEventListener('resize',drawGrid);
+  buildSide(); applyView(); loadMLP();
+})();
+</script>
+</body>
+</html>
