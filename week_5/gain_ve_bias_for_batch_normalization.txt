@@ -1,0 +1,55 @@
+gain ve bias ne alaka gain ne demek
+
+İkisi de öğrenilebilir düzeltme parametreleri. Neden var, önce onu netleştirelim.
+
+Önce sorun: normalizasyon çok katı
+BatchNorm her adımda hpreact'i zorla ortalama 0, std 1 yapıyor. Hiç istisna yok.
+
+Ama bu her zaman en iyisi olmayabilir. Belki bir nöronun gerçekten geniş bir aralıkta çalışması gerekiyor, belki merkezi sıfırdan kaymış olması daha faydalı. Normalizasyon bu esnekliği ağın elinden alıyor.
+
+Çözüm: normalize et, sonra ayarlamaya izin ver
+python
+bnraw = (hpreact - mean) / std        # zorla normalize
+hpreact = bngain * bnraw + bnbias     # sonra ağ ayarlasın
+bnraw kesin olarak ortalama 0, std 1. Ama son satırda bir çarpma (bngain) ve bir toplama (bnbias) daha var.
+
+gain ne demek
+Kelime anlamı "kazanç" — ses sistemlerindeki volume kadranı gibi düşün. Bir sinyali büyütüp küçültüyor.
+
+bngain * bnraw demek: normalize edilmiş değeri bir sayıyla çarpıyorsun.
+
+bngain = 1 ise hiçbir şey değişmiyor.
+bngain = 2 ise std'yi tekrar 2'ye çıkarıyorsun — normalizasyonu kısmen geri alıyorsun.
+bngain = 0.5 ise std'yi 0.5'e sıkıştırıyorsun — daha da dar yapıyorsun.
+
+Yani bngain, normalizasyonun ne kadar geri alınacağını kontrol ediyor.
+
+bias ne demek
+Bunu zaten biliyorsun — hafta 1'den beri gördüğün bias. "Sonuca sabit bir sayı ekle."
+
++ bnbias demek: normalize edilmiş (ortalaması 0 olan) değere bir sabit ekleyip merkezini kaydırıyorsun.
+
+bnbias = 0 ise merkez sıfırda kalıyor.
+bnbias = 2 ise merkezi 2'ye kaydırıyorsun.
+
+İkisi birlikte ne yapıyor
+bngain genişliği ayarlıyor, bnbias merkezi kaydırıyor. Normalizasyonun tersini kısmen uygulayabiliyor ağ isterse.
+
+Neden öğrenilebilir
+Bunlar W1, W2 gibi sıradan parametreler — requires_grad=True, gradient alıyorlar, loss.backward() ile güncelleniyorlar.
+
+Eğitim sırasında ağ şunu keşfedebiliyor: "bu nöron için tam std=1 iyi değil, std=1.3 daha iyi çalışıyor." Gradient bunu bngain'e yansıtıyor, bngain 1.3'e doğru kayıyor.
+
+Başlangıç değerleri
+Normalde:
+
+python
+bngain = torch.ones((1, n_hidden))    # 1'ler
+bnbias = torch.zeros((1, n_hidden))   # sıfırlar
+Yani eğitim başlarken hiçbir şey değiştirmiyorlar — tam normalize edilmiş hal aynen geçiyor. Eğitim ilerledikçe, işine yarıyorsa kayabiliyorlar.
+
+Senin kodunda rastgele gürültüyle başlatılmışlardı (*0.1 + 1.0 gibi) — bu sadece backprop testinde sıfır/bir gibi "özel" sayıların hataları gizlememesi için, normal eğitimde ones/zeros kullanılır.
+
+Tek cümlede
+BatchNorm önce zorla standartlaştırıyor (ortalama 0, std 1), sonra bngain ve bnbias ile ağa "istersen bunu biraz büyüt/küçült ve kaydır" imkânı veriyor — ikisi de eğitimle öğreniliyor, sabit değil.
+

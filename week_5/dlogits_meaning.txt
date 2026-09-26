@@ -1,0 +1,38 @@
+dlogits formülünü hatırla
+python
+dlogits = probs.clone()
+dlogits[range(n), Yb] -= 1
+dlogits /= n
+
+Bir satırı somut örnekle görelim. Diyelim bir örnekte doğru cevap e harfi (indeks 5), ve model şu olasılıkları üretmiş:
+
+probs[i] = [0.02, 0.01, 0.05, ..., 0.60 (indeks 5, yani 'e'), ..., 0.01]
+
+dlogits[i] şöyle olacak:
+
+dlogits[i] = [0.02, 0.01, 0.05, ..., 0.60 - 1 = -0.40, ..., 0.01]  (hepsi /n bölünmüş)
+Karpathy'nin yorumu: "çekme" (pull) ve "itme" (push)
+
+Doğru cevabın konumunda (-0.40, negatif): Bu bir "çekme" kuvveti. Gradient descent, w = w - lr*grad yaptığı için, negatif gradient ağırlığı artırma yönünde bir güncelleme yaratır. Yani bu konumdaki logiti yukarı çek — modelin doğru cevaba daha fazla olasılık vermesini teşvik et.
+
+Yanlış cevapların konumunda (pozitif, 0.02, 0.01, 0.05 gibi): Bunlar "itme" kuvveti. Pozitif gradient, güncellemede logiti azaltma yönünde çalışır. Yani "bu yanlış cevaplara verdiğin olasılığı aşağı it."
+
+"Belli oranlarda çekilen" ne demek
+
+İşte burası ilginç: itme miktarı her yanlış cevap için eşit değil, doğrudan probs'a orantılı.
+
+Eğer model bir yanlış cevaba (q harfine mesela) zaten çok düşük olasılık veriyorsa (0.001), o çok az itiliyor. Ama bir yanlış cevaba (mesela a'ya) yanlışlıkla yüksek olasılık veriyorsa (0.25), o çok daha güçlü itiliyor.
+
+Yani gradient, "modelin ne kadar yanıldığıyla orantılı olarak" düzeltme yapıyor — büyük yanlış inanışlar sert cezalandırılıyor, küçük yanlış inanışlar hafif dokunuluyor.
+
+Toplamları sıfır (denge)
+
+Bir satırdaki dlogits toplamı her zaman 0'dır (çünkü probs satırının toplamı 1, ondan 1 çıkarınca toplam 0 olur, /n de oranı bozmaz). Bu, çekme ve itme kuvvetlerinin birbirini dengelediği anlamına geliyor — toplam "kuvvet" korunuyor, sadece yeniden dağıtılıyor.
+
+Benzetme
+
+Bunu bir su terazisi gibi düşün: doğru cevap tarafı aşağı çekiliyor (gradient negatif → ağırlık artacak), yanlış cevaplar yukarı itiliyor (gradient pozitif → ağırlık azalacak), ve bu iticilik yanlış cevabın "ne kadar yüksek olasılıkla yanlış tahmin edildiğine" göre ölçekleniyor. Terazi her zaman dengede — toplam kuvvet sıfır, sadece kimin ne kadar payı olduğu değişiyor.
+
+Bunun pratik anlamı
+
+Modelin en çok yanıldığı yerler (yüksek olasılık verip yanlış çıkan) en güçlü düzeltmeyi alıyor. Bu, öğrenmenin neden verimli olduğunu açıklıyor — küçük hatalar küçük düzeltme alır, büyük hatalar büyük düzeltme alır, tıpkı senin geçen haftaki gradient descent deneylerinde (lr=10 ile çukura düzgün oturması) gördüğün "büyük eğimde büyük adım, küçük eğimde küçük adım" mantığının aynısı — burada da aynı fikir, farklı bir bağlamda karşına çıkıyor.
