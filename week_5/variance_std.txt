@@ -1,0 +1,101 @@
+Varyans nedir
+
+Bir grup sayının "ne kadar dağınık" olduğunun ölçüsü.
+
+[9, 10, 11] — dar dağılım, hepsi birbirine yakın.
+[0, 10, 20] — geniş dağılım, aynı ortalamaya sahip ama çok yayılmış.
+
+Nasıl hesaplanır: her sayının ortalamadan farkını al, karesini al, ortalamasını al.
+
+[0, 10, 20] için: ortalama 10. Farklar: -10, 0, 10. Kareler: 100, 0, 100. Ortalama: 66.7. Varyans = 66.7.
+
+Neden kare alıyoruz: işaretten kurtulmak için. Ham farkları toplasan sıfır çıkardı (-10+0+10=0), hep sıfır olurdu, hiçbir bilgi vermezdi.
+
+Standart sapma = varyansın karekökü. √66.7 ≈ 8.16. Kare almanın bozduğu birimi geri düzeltiyor. "Tipik bir sayı ortalamadan ne kadar uzakta" sorusunun cevabı bu.
+
+Neden bu ağda önemli
+
+Bir nöronun çıktısı (tanh'a girmeden önceki hali) çok geniş yayılmışsa (std büyükse), tanh onu -1 veya +1'e yapıştırıyor. Orada türev sıfıra yakın, gradient geçmiyor, o nöron öğrenmiyor.
+
+İstediğin şey: bu değerlerin std'sinin 1 civarında olması. Çok dar da olmasın (aktivasyon işe yaramaz), çok geniş de olmasın (doyar).
+
+BatchNorm ne demek
+
+"Batch Normalization" — batch boyunca normalize etmek.
+
+Fikir: bir katmanın çıktısını al, zorla ortalaması 0, standart sapması 1 olacak şekilde ayarla.
+
+Nasıl yapılır, adım adım
+
+Elinde 32 örnek var, her biri için bir nöronun çıktısı: [5, 8, 2, 6, 9, 3, ...] (32 sayı).
+
+1. Ortalamayı bul: bu 32 sayının ortalaması. Diyelim 5.
+
+2. Her sayıdan ortalamayı çıkar: [0, 3, -3, 1, 4, -2, ...]. Artık merkez sıfırda.
+
+3. Standart sapmayı bul: bu farkların ne kadar yayıldığı. Diyelim 3.
+
+4. Her farkı standart sapmaya böl: [0, 1, -1, 0.33, 1.33, -0.67, ...]. Artık yayılım da standart.
+
+Sonuç: hangi ham değerlerle başlarsan başla, bu dört adımdan sonra ortalama tam 0, standart sapma tam 1 çıkıyor. Garanti, tahmin değil.
+
+Neye yarıyor
+
+tanh'a giden değer artık her zaman makul aralıkta. Ağırlıkları ne kadar kötü başlatırsan başlat, BatchNorm bu dört adımı her seferinde yapıp değeri düzeltiyor. Kaiming'de "doğru başlat, umarım öyle kalır" diyordun; burada "her adımda ölç ve düzelt" diyorsun.
+
+Neden batch boyunca
+
+Kritik nokta burası. Normalizasyonu 32 örnek arasında yapıyorsun, tek bir örnek içinde değil.
+
+Yani bir nöronun 32 farklı örnekteki değerlerine bakıp onların ortalama ve std'sini hesaplıyorsun. Tek bir örneğin kendi başına ortalaması olmaz — ortalama almak için birden fazla sayı gerekir.
+
+Bu yüzden ismi "batch" norm: normalizasyon batch (yığın) boyunca oluyor.
+
+Neden bngain ve bnbias var
+
+Dört adımdan sonra değerler her zaman ortalama 0, std 1'e sabitleniyor. Ama bu her zaman en iyisi olmayabilir. Belki bir nöronun biraz daha geniş bir aralıkta çalışması daha faydalı.
+
+bngain ve bnbias bu esnekliği geri veriyor: normalize ettikten sonra bir çarpma ve bir toplama daha yapıyorsun. Bunlar öğrenilebilir, yani ağ eğitim sırasında "bu nöronu biraz daha geniş tutmak istiyorum" diyebiliyor.
+
+Başlangıçta bngain=1, bnbias=0 — yani hiçbir şey değiştirmiyorlar, tam normalize edilmiş hal geçiyor. Eğitim ilerledikçe gerekirse kayabiliyorlar.
+
+Neden farklı ifadeler var, kafa karıştırıyor
+
+Aynı matematiğin iki yazılışı var:
+
+Elle açılmış (öğretici versiyon):
+
+python
+bnmeani = hprebn.sum(0, keepdim=True) / n
+bndiff = hprebn - bnmeani
+bndiff2 = bndiff**2
+bnvar = bndiff2.sum(0, keepdim=True) / (n-1)
+bnvar_inv = (bnvar + 1e-5)**-0.5
+bnraw = bndiff * bnvar_inv
+
+Hazır fonksiyonla (pratik versiyon):
+
+python
+bnmeani = hprebn.mean(0, keepdim=True)
+bnstdi = hprebn.std(0, keepdim=True)
+bnraw = (hprebn - bnmeani) / bnstdi
+
+İkisi aynı sonucu veriyor. Fark: birincisi her adımı senin görebilmen için parça parça yazılmış (backprop alıştırması için), ikincisi PyTorch'un hazır .mean() ve .std() fonksiyonlarıyla kısaltılmış (gerçek kullanım için).
+
+Aynı tarifi bir kere "önce unu eleyin, sonra şekeri karıştırın, sonra..." diye uzun yazmışsın, bir kere "karıştır" diye kısa yazmışsın. Yemek aynı.
+
+0 ekseni neden
+
+hprebn şekli [32, 64] — 32 örnek, 64 nöron.
+
+.mean(0) demek "0. eksen boyunca ortalama al" — yani satırlar arasında, her sütun için ayrı ayrı. Sonuç [64] (ya da keepdim=True ile [1, 64]).
+
+Yani her nöronun 32 örnekteki değerlerinin ortalamasını alıyorsun, nöronları birbirine karıştırmıyorsun. 64 ayrı ortalama, 64 ayrı std çıkıyor.
+
+Bessel düzeltmesi (n-1)
+
+Kısa not: elinde 32 örnek var ama bu 32 örnek, "bütün olası verinin" sadece küçük bir kesiti. Gerçek varyansı tahmin etmeye çalışıyorsun ama 32 örnekle bu tahmin hafif küçük çıkma eğiliminde. n yerine n-1'e bölmek bu küçük yanlılığı düzeltiyor. İstatistikte standart bir pratik, PyTorch'un .std()'si de varsayılan olarak bunu yapıyor.
+
+Tek cümlede özet
+
+BatchNorm: bir katmanın çıktısını al, 32 örnek arasında ortalamasını sıfıra, yayılımını bire zorla, sonra ağa "istersen biraz ayarla" de. Amaç: sonraki katmana (özellikle tanh'a) her zaman makul büyüklükte sayılar gitsin, ne çok küçük ne çok büyük.

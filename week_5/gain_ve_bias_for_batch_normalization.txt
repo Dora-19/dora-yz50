@@ -53,3 +53,6 @@ Senin kodunda rastgele gürültüyle başlatılmışlardı (*0.1 + 1.0 gibi) —
 Tek cümlede
 BatchNorm önce zorla standartlaştırıyor (ortalama 0, std 1), sonra bngain ve bnbias ile ağa "istersen bunu biraz büyüt/küçült ve kaydır" imkânı veriyor — ikisi de eğitimle öğreniliyor, sabit değil.
 
+
+
+ÖZET: gain stdyi bias meani değiştiriyor. 

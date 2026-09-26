@@ -1,0 +1,31 @@
+hpreact, matris çarpımından çıkan ham sayılar. Henüz tanh'a girmemiş.
+activation tanha girmesi mi? neden hidden
+
+İki soruyu ayrı ayrı.
+
+"Aktivasyon" ne demek burada
+Evet, tanh'a girmesi/geçmesi. "Activation function" = aktivasyon fonksiyonu, yani tanh, ReLU, sigmoid gibi fonksiyonların genel adı.
+
+"Pre-activation" = bu fonksiyona girmeden önceki hal.
+"Activation" (tek başına, "post-activation" anlamında) = fonksiyondan çıktıktan sonraki hal.
+
+Yani h = tanh(hpreact) satırında: hpreact pre-activation, h activation'ın kendisi (bazen "post-activation" da denir ama kısaca "activation" yeterli).
+
+"Hidden" neden
+Bu, o katmanın konumuyla ilgili, tanh ile değil.
+
+Ağın üç tür katmanı var:
+
+Girdi katmanı — dışarıdan veri giriyor (embcat)
+Gizli (hidden) katman — girdi ile çıktı arasında, dışarıdan doğrudan görünmeyen ara katman
+Çıktı katmanı — sonuç üretiyor (logits)
+
+"Hidden" (gizli) denmesinin sebebi: bu katmanın değerleri ne girdi ne de nihai çıktı. Sen sadece X (girdi) ve logits/olasılıkları (çıktı) ile ilgileniyorsun; aradaki hpreact ve h senin doğrudan bakmadığın, ağın "içinde" kalan değerler. Modelin dışarıya açılan iki ucu arasında "saklı" kalıyorlar.
+
+İkisini birleştirince
+"Hidden pre-activation" = "gizli katmandaki, aktivasyona girmeden önceki değer."
+
+Yani hem konum bilgisi var (hidden = ara katmanda), hem aşama bilgisi var (pre-activation = tanh'tan önce).
+
+Karşılaştırma
+Eğer bu bir çıktı katmanı olsaydı (senin logits'in gibi), ona "hidden" denmezdi çünkü o zaten dışarıya açılan son katman. logits'e bu yüzden "pre-activation" da denmiyor genelde — çünkü softmax bir aktivasyon fonksiyonu sayılsa da isimlendirme geleneği orada değişiyor, direkt "logits" deniyor.
