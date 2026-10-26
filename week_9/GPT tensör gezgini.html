@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPT tensör gezgini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --sky:#ebf5ff; --card:#fafdff; --white:#ffffff; --mist:#f6f7f8;
+  --ink:#0a0d12; --charcoal:#181d27; --graphite:#535862; --fog:#93979f;
+  --iris:#0069e0; --powder:#cce7ff; --lavender:#f1e6ff; --mint:#d3f6e3; --peach:#ffd1b8; --solar:#fff2be;
+  --pos-rgb:0,105,224; --neg-rgb:255,138,76;
+  --r-card:32px; --r-sm:16px; --pill:9999px;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;background:var(--sky)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--sky);color:var(--ink);font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5;letter-spacing:-0.01em;font-weight:500}
+code,.mono{font-family:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;letter-spacing:0}
+
+header{display:flex;align-items:center;gap:24px;padding:20px 32px;flex-wrap:wrap}
+header h1{font-size:24px;font-weight:500;margin:0;letter-spacing:-0.02em;line-height:1.17}
+header .dims{display:flex;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--graphite);line-height:1.14}
+.dim{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--card);border-radius:var(--pill)}
+.dim i{display:none}
+
+.layout{display:grid;grid-template-columns:280px 1fr;gap:24px;padding:0 32px 48px;max-width:1400px;margin:0 auto}
+nav{background:var(--card);border-radius:var(--r-card);padding:16px 12px;align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+nav button{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;width:100%;text-align:left;background:none;border:0;border-radius:var(--r-sm);padding:10px 12px;color:var(--graphite);font:inherit;font-size:14px;font-weight:500;line-height:1.3;cursor:pointer;letter-spacing:-0.01em}
+nav button .n{font-family:"Geist Mono",monospace;font-size:12px;color:var(--fog);padding-top:1px}
+nav button:hover{background:var(--sky)}
+nav button.on{background:var(--charcoal);color:var(--white)}
+nav button.on .n{color:rgba(255,255,255,.55)}
+nav button:focus-visible{outline:2px solid var(--iris);outline-offset:-2px}
+
+main{min-width:0;background:var(--card);border-radius:var(--r-card);padding:40px}
+.step-head{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.step-head h2{font-size:32px;font-weight:500;margin:0;line-height:1.25;letter-spacing:-0.02em}
+.step-head code{font-size:14px;color:var(--graphite);background:var(--sky);padding:6px 12px;border-radius:var(--pill)}
+.prose{max-width:68ch;color:var(--graphite);margin:0 0 24px;font-size:18px;line-height:1.4;font-weight:500;letter-spacing:-0.01em}
+.prose p{margin:0 0 12px}
+.prose strong{color:var(--ink);font-weight:500}
+.prose code{background:var(--sky);color:var(--ink);padding:2px 7px;border-radius:8px;font-size:.88em}
+
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 28px}
+.btn{font:inherit;font-size:14px;font-weight:500;padding:10px 20px;border-radius:var(--pill);border:0;background:var(--sky);color:var(--ink);cursor:pointer;letter-spacing:-0.01em}
+.btn:hover{background:var(--powder)}
+.btn.primary{background:var(--charcoal);color:var(--white);box-shadow:0 1px 2px rgba(10,13,18,.8),0 0 0 1px #0a0d12}
+.btn.primary:hover{background:var(--ink)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible{outline:2px solid var(--iris);outline-offset:2px}
+.seg{display:inline-flex;background:var(--sky);border-radius:var(--pill);padding:3px;gap:2px}
+.seg button{font:inherit;font-size:14px;font-weight:500;padding:7px 14px;border:0;border-radius:var(--pill);background:transparent;color:var(--graphite);cursor:pointer}
+.seg button.on{background:var(--white);color:var(--ink)}
+.speed{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--graphite);margin-left:8px}
+.speed input{accent-color:var(--charcoal)}
+
+.stage{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;overflow-x:auto;padding-bottom:6px}
+.tensor{display:inline-flex;flex-direction:column;gap:8px}
+.tensor .label{font-size:14px;color:var(--graphite);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;line-height:1.3}
+.tensor .label b{color:var(--ink);font-weight:500;font-family:"Geist Mono",monospace;font-size:13px}
+.shape{font-family:"Geist Mono",monospace;font-size:13px;color:var(--iris);display:inline-flex;align-items:center}
+.shape span{padding:0 1px}
+.op{align-self:center;font-family:"Geist Mono",monospace;font-size:18px;color:var(--fog);padding:0 2px;margin-top:22px}
+.grid{display:grid;gap:4px}
+.cell{min-width:42px;height:32px;display:flex;align-items:center;justify-content:center;font-family:"Geist Mono",monospace;font-size:12px;border-radius:8px;border:0;background:var(--sky);color:var(--ink);transition:background .25s,transform .25s,color .25s,box-shadow .25s}
+.cell.sm{min-width:36px;height:28px;font-size:11.5px}
+.cell.int{background:var(--white);box-shadow:inset 0 0 0 1px var(--powder)}
+.cell.ellip{background:transparent;color:var(--fog)}
+.cell.hlA{background:var(--lavender)!important;box-shadow:inset 0 0 0 1.5px #b48cf0}
+.cell.hlB{background:var(--mint)!important;box-shadow:inset 0 0 0 1.5px #4fbf8a}
+.cell.hlO{background:var(--charcoal)!important;color:var(--white);transform:scale(1.1);box-shadow:0 1px 2px rgba(10,13,18,.8),0 0 0 1px #0a0d12}
+.cell.dim{opacity:.3}
+.rowlab{font-family:"Geist Mono",monospace;font-size:11px;color:var(--fog);display:flex;align-items:center;justify-content:flex-end;padding-right:8px}
+.collab{font-family:"Geist Mono",monospace;font-size:11px;color:var(--fog);display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px}
+.batches{display:flex;gap:16px;flex-wrap:wrap}
+.batch{display:flex;flex-direction:column;gap:6px}
+.batch .bl{font-size:12px;color:var(--fog);font-family:"Geist Mono",monospace}
+.note{font-size:16px;line-height:1.4;color:var(--graphite);background:var(--sky);border-radius:var(--r-sm);padding:16px 20px;max-width:68ch;margin-top:24px;font-weight:500}
+.note code{background:var(--white);padding:2px 7px;border-radius:8px;color:var(--ink);font-size:.88em}
+.strip{display:flex;gap:4px;flex-wrap:wrap}
+.chars{display:flex;gap:4px;flex-wrap:wrap}
+.ch{min-width:32px;height:34px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--white);box-shadow:inset 0 0 0 1px var(--powder);border-radius:8px;font-family:"Geist Mono",monospace;font-size:12px}
+.ch small{font-size:10px;color:var(--fog)}
+.legend{display:flex;gap:20px;align-items:center;font-size:14px;color:var(--graphite);margin-top:16px;flex-wrap:wrap}
+.legend .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px}
+.footer-nav{display:flex;justify-content:space-between;margin-top:32px;padding-top:24px}
+.bar{height:4px;border-radius:var(--pill);background:var(--sky);overflow:hidden;margin-bottom:24px}
+.bar i{display:block;height:100%;background:var(--charcoal);border-radius:var(--pill)}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr;padding:0 12px 32px}
+  header{padding:16px}
+  nav{position:static;max-height:none;display:flex;overflow-x:auto;padding:8px;border-radius:var(--r-sm)}
+  nav button{width:auto;white-space:nowrap;grid-template-columns:auto 1fr}
+  main{padding:20px;border-radius:var(--r-sm)}
+  .step-head h2{font-size:24px}
+  .prose{font-size:16px}
+}
+@media (prefers-reduced-motion: reduce){ .cell{transition:none} }
+</style>
+</head>
+<body>
+<header>
+  <h1>GPT tensör gezgini</h1>
+  <div class="dims">
+    <span class="dim b"><i></i>B = 2 batch</span>
+    <span class="dim t"><i></i>T = 4 zaman</span>
+    <span class="dim c"><i></i>C = 6 kanal (n_embd)</span>
+    <span class="dim h"><i></i>head_size = 3, n_head = 2</span>
+    <span class="dim v"><i></i>vocab = 65</span>
+  </div>
+</header>
+<div class="layout">
+  <nav id="nav" aria-label="Adımlar"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+// ---------- deterministic random ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rnd=mulberry32(1337);
+const randn=()=>{let u=1-rnd(),v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+const R=(s)=>s;
+// ---------- dims ----------
+const B=2,T=4,C=6,HS=3,NH=2,V=65;
+const chars=" !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const text="First Citizen:\nBefore we proceed";
+const stoi={};[...chars].forEach((c,i)=>stoi[c]=i);
+const data=[...text].map(c=>stoi[c]);
+const ix=[0,5];
+const xb=ix.map(i=>data.slice(i,i+T));
+const yb=ix.map(i=>data.slice(i+1,i+T+1));
+// ---------- helpers ----------
+const zeros=(r,c)=>Array.from({length:r},()=>Array(c).fill(0));
+const randm=(r,c,s=1)=>Array.from({length:r},()=>Array.from({length:c},()=>randn()*s));
+const matmul=(A,Bm)=>A.map(row=>Bm[0].map((_,j)=>row.reduce((acc,a,k)=>acc+a*Bm[k][j],0)));
+const transpose=A=>A[0].map((_,j)=>A.map(r=>r[j]));
+const add=(A,Bm)=>A.map((r,i)=>r.map((v,j)=>v+Bm[i][j]));
+const scale=(A,s)=>A.map(r=>r.map(v=>v*s));
+const softmaxRows=A=>A.map(r=>{const m=Math.max(...r);const e=r.map(v=>Math.exp(v-m));const s=e.reduce((a,b)=>a+b,0);return e.map(v=>v/s)});
+const lnRows=A=>A.map(r=>{const m=r.reduce((a,b)=>a+b,0)/r.length;const va=r.reduce((a,b)=>a+(b-m)**2,0)/r.length;return r.map(v=>(v-m)/Math.sqrt(va+1e-5))});
+const relu=A=>A.map(r=>r.map(v=>Math.max(0,v)));
+const fmt=(v)=>{if(v===-Infinity)return"−∞";if(Number.isInteger(v))return String(v);const a=Math.abs(v);return (a>=10?v.toFixed(1):v.toFixed(2)).replace("-","−")};
+// ---------- model params ----------
+const tokTable=randm(V,C,1.0);
+const posTable=randm(T,C,1.0);
+const heads=Array.from({length:NH},()=>({Wq:randm(C,HS,0.5),Wk:randm(C,HS,0.5),Wv:randm(C,HS,0.5)}));
+const Wproj=randm(C,C,0.4);
+const W1=randm(C,4*C,0.4), W2=randm(4*C,C,0.3);
+const Wlm=randm(C,V,0.5);
+const tril=zeros(T,T).map((r,i)=>r.map((_,j)=>j<=i?1:0));
+// ---------- forward (per batch) ----------
+const tokEmb=xb.map(row=>row.map(i=>tokTable[i]));
+const x0=tokEmb.map(m=>add(m,posTable));
+function headForward(x,h){
+  const q=matmul(x,h.Wq),k=matmul(x,h.Wk),v=matmul(x,h.Wv);
+  const raw=matmul(q,transpose(k));
+  const sc=scale(raw,HS**-0.5);
+  const masked=sc.map((r,i)=>r.map((val,j)=>tril[i][j]?val:-Infinity));
+  const w=softmaxRows(masked);
+  const out=matmul(w,v);
+  return {q,k,v,raw,sc,masked,w,out};
+}
+const fw=x0.map(x=>{
+  const ln1=lnRows(x);
+  const hs=heads.map(h=>headForward(ln1,h));
+  const cat=ln1.map((_,i)=>hs.flatMap(h=>h.out[i]));
+  const sa=matmul(cat,Wproj);
+  const x1=add(x,sa);
+  const ln2=lnRows(x1);
+  const hid=matmul(ln2,W1), act=relu(hid), ff=matmul(act,W2);
+  const x2=add(x1,ff);
+  const lnf=lnRows(x2);
+  const logits=matmul(lnf,Wlm);
+  const probs=softmaxRows(logits);
+  return {x,ln1,hs,cat,sa,x1,ln2,hid,act,ff,x2,lnf,logits,probs};
+});
+const flatLogits=fw.flatMap(f=>f.logits), flatProbs=fw.flatMap(f=>f.probs), flatTargets=yb.flat();
+const nll=flatProbs.map((p,i)=>-Math.log(p[flatTargets[i]]));
+const loss=nll.reduce((a,b)=>a+b,0)/nll.length;
+
+// ---------- rendering ----------
+let bsel=0, speed=1, playing=false, stopFlag=false;
+const colorFor=(v,vmax)=>{if(v===-Infinity)return"var(--mist)";const a=0.08+Math.min(1,Math.abs(v)/vmax)*0.55;const rgb=v<0?"var(--neg-rgb)":"var(--pos-rgb)";return`rgba(${rgb},${a.toFixed(2)})`};
+const negCls=v=>"";
+function shapeHTML(dims){return `<span class="shape">(${dims.map(d=>`<span class="${d[1]}">${d[0]}</span>`).join(", ")})</span>`}
+// dims: [["B","B"],["T","T"],...]  -> label letter and class
+function mat(id,A,opts={}){
+  const {rowLabels,colLabels,maxCols,intMode,vmax,small,rowIds}=opts;
+  const rows=A.length, cols=A[0].length;
+  const showCols=maxCols&&cols>maxCols?maxCols:cols;
+  const ell=showCols<cols;
+  const vm=vmax||Math.max(0.01,...A.flat().filter(v=>isFinite(v)).map(Math.abs));
+  const gcols=(rowLabels?"auto ":"")+`repeat(${showCols+(ell?2:0)},auto)`;
+  let h=`<div class="grid" id="${id}" style="grid-template-columns:${gcols}">`;
+  if(colLabels){ if(rowLabels)h+=`<div></div>`; for(let j=0;j<showCols;j++)h+=`<div class="collab">${colLabels[j]??j}</div>`; if(ell)h+=`<div class="collab">…</div><div class="collab">${cols-1}</div>`; }
+  for(let i=0;i<rows;i++){
+    if(rowLabels)h+=`<div class="rowlab">${rowLabels[i]??i}</div>`;
+    for(let j=0;j<showCols;j++){const v=A[i][j];h+=`<div class="cell${small?" sm":""}${intMode?" int":negCls(v)}" data-r="${rowIds?rowIds[i]:i}" data-c="${j}" style="${intMode?"":"background:"+colorFor(v,vm)}">${fmt(v)}</div>`}
+    if(ell){h+=`<div class="cell ellip${small?" sm":""}">…</div>`;const v=A[i][cols-1];h+=`<div class="cell${small?" sm":""}${intMode?" int":negCls(v)}" data-r="${rowIds?rowIds[i]:i}" data-c="${cols-1}" style="${intMode?"":"background:"+colorFor(v,vm)}">${fmt(v)}</div>`}
+  }
+  return h+`</div>`;
+}
+function tensor(title,shape,inner,sub){return `<div class="tensor"><div class="label"><b>${title}</b>${shapeHTML(shape)}${sub?`<span>${sub}</span>`:""}</div>${inner}</div>`}
+function batches(title,shape,fn,sub){let h=`<div class="tensor"><div class="label"><b>${title}</b>${shapeHTML(shape)}${sub?`<span>${sub}</span>`:""}</div><div class="batches">`;for(let b=0;b<B;b++)h+=`<div class="batch"><span class="bl">batch ${b}</span>${fn(b)}</div>`;return h+`</div></div>`}
+const op=s=>`<div class="op">${s}</div>`;
+const tl=i=>`t=${i}`;
+const Trow=[0,1,2,3].map(tl);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const cells=id=>[...document.querySelectorAll(`#${id} .cell[data-r]`)];
+const clearHl=()=>document.querySelectorAll(".cell").forEach(c=>c.classList.remove("hlA","hlB","hlO","dim"));
+function setPlayBtn(on){const b=document.getElementById("play");if(!b)return;b.textContent=on?"Durdur":"Animasyonu oynat";b.classList.toggle("primary",!on)}
+async function runAnim(fn){ if(playing){stopFlag=true;return;} playing=true;stopFlag=false;setPlayBtn(true);clearHl();try{await fn()}catch(e){}clearHl();playing=false;stopFlag=false;setPlayBtn(false)}
+const dt=base=>base/speed;
+async function animMatmul(aId,bId,oId){
+  const A=cells(aId),Bc=cells(bId),O=cells(oId);
+  const rowsA=new Set(A.map(c=>c.dataset.r)).size;
+  O.forEach(c=>c.classList.add("dim"));
+  for(const o of O){
+    if(stopFlag)return;
+    const i=o.dataset.r,j=o.dataset.c;
+    clearHl();O.forEach(c=>{if(c!==o)c.classList.add("dim")});
+    A.filter(c=>c.dataset.r===i).forEach(c=>c.classList.add("hlA"));
+    Bc.filter(c=>c.dataset.c===j).forEach(c=>c.classList.add("hlB"));
+    o.classList.remove("dim");o.classList.add("hlO");
+    await sleep(dt(380));
+  }
+}
+async function animRows(ids,outId,extra){
+  const O=cells(outId);O.forEach(c=>c.classList.add("dim"));
+  for(let i=0;i<T;i++){
+    if(stopFlag)return;
+    clearHl();O.forEach(c=>{if(c.dataset.r!=i)c.classList.add("dim")});
+    ids.forEach(id=>cells(id).filter(c=>c.dataset.r==i).forEach(c=>c.classList.add("hlA")));
+    O.filter(c=>c.dataset.r==i).forEach(c=>c.classList.add("hlO"));
+    if(extra)extra(i);
+    await sleep(dt(650));
+  }
+}
+async function animLookup(){
+  const X=cells("xb"),TB=cells("tt"),O=cells("te");
+  O.forEach(c=>c.classList.add("dim"));
+  for(let b=0;b<B;b++)for(let t=0;t<T;t++){
+    if(stopFlag)return;
+    clearHl();O.forEach(c=>c.classList.add("dim"));
+    const idx=xb[b][t];
+    X.filter(c=>c.dataset.r==b&&c.dataset.c==t).forEach(c=>c.classList.add("hlA"));
+    TB.filter(c=>c.dataset.r==idx).forEach(c=>c.classList.add("hlB"));
+    document.querySelectorAll(`#te${b} .cell[data-r="${t}"]`).forEach(c=>{c.classList.remove("dim");c.classList.add("hlO")});
+    await sleep(dt(520));
+  }
+}
+async function animWindow(){
+  const S=[...document.querySelectorAll("#strip .cell")];
+  for(let b=0;b<B;b++){
+    if(stopFlag)return;
+    clearHl();
+    S.forEach((c,i)=>{if(i>=ix[b]&&i<ix[b]+T)c.classList.add("hlA")});
+    cells("xb").filter(c=>c.dataset.r==b).forEach(c=>c.classList.add("hlA"));
+    await sleep(dt(900));
+    S.forEach((c,i)=>{c.classList.remove("hlA");if(i>=ix[b]+1&&i<ix[b]+T+1)c.classList.add("hlO")});
+    cells("yb").filter(c=>c.dataset.r==b).forEach(c=>c.classList.add("hlO"));
+    await sleep(dt(900));
+  }
+}
+
+// ---------- steps ----------
+const usedIdx=[...new Set(xb.flat())].sort((a,b)=>a-b);
+const steps=[
+{t:"Metin sayılara dönüşür",code:"data = torch.tensor(encode(text))",
+ why:`<p>Modelin gördüğü şey harf değil, tam sayı. 65 farklı karakter var, her birine 0–64 arası bir numara verdik (<code>stoi</code>). Bütün Shakespeare böyle tek boyutlu, 1.115.394 uzunluğunda bir sayı dizisi oluyor.</p><p>Henüz ortada ne B ne T ne C var; sadece uzun bir şerit.</p>`,
+ render(){let h=`<div class="tensor"><div class="label"><b>text</b><span>ilk ${data.length} karakter</span></div><div class="chars">${[...text].slice(0,12).map((c,i)=>`<div class="ch">${c==="\n"?"\\n":c==" "?"␣":c}<small>${data[i]}</small></div>`).join("")}<div class="ch" style="border-style:dashed">…</div></div></div>`;
+  h+=`<div class="tensor" style="margin-top:14px"><div class="label"><b>data</b>${shapeHTML([["1115394","V"]])}</div><div class="strip">${data.slice(0,12).map(v=>`<div class="cell int">${v}</div>`).join("")}<div class="cell ellip">…</div></div></div>`;
+  h+=`<div class="note">Tokenizer haftasının konusu tam burası: şu an <code>encode</code> bir harf → bir sayı. BPE ile bir harf grubu → bir sayı olacak ve vocab 65 yerine ~50.000 olacak. Bu sayfadaki geri kalan her adım değişmeden kalır.</div>`;return h}},
+{t:"get_batch: xb ve yb",code:"x = stack([data[i:i+T]]) ; y = stack([data[i+1:i+T+1]])",
+ why:`<p>Şeritten <strong>B</strong> tane rastgele başlangıç noktası seçiyoruz (burada <code>ix = [0, 5]</code>) ve her birinden <strong>T</strong> uzunluğunda pencere kesiyoruz. Bu <code>xb</code>. Aynı pencereyi bir sağa kaydırınca <code>yb</code> çıkıyor: her pozisyon için “bir sonraki token” hedefi.</p><p>Tek bir <code>(B, T)</code> çiftinde aslında B·T = 8 ayrı eğitim örneği var: <code>xb[b, :t+1]</code> girdi, <code>yb[b, t]</code> cevap.</p>`,
+ anim:animWindow,
+ render(){let h=`<div class="tensor"><div class="label"><b>data</b></div><div class="strip" id="strip">${data.slice(0,12).map((v,i)=>`<div class="cell int" data-i="${i}">${v}</div>`).join("")}</div></div>`;
+  h+=`<div class="stage" style="margin-top:18px">${tensor("xb",[["B","B"],["T","T"]],mat("xb",xb,{intMode:true,rowLabels:["b=0","b=1"],colLabels:Trow}))}${tensor("yb",[["B","B"],["T","T"]],mat("yb",yb,{intMode:true,rowLabels:["b=0","b=1"],colLabels:Trow}))}</div>`;
+  h+=`<div class="note">Satır 0: “Firs” → “irst”. Satır 1: “ Cit” → “Citi”. Hedef her zaman girdinin bir adım ilerisi.</div>`;return h}},
+{t:"Token embedding (lookup)",code:"tok_emb = token_embedding_table(idx)   # (B,T) → (B,T,C)",
+ why:`<p><code>nn.Embedding(65, C)</code> aslında <code>(65, C)</code> şeklinde bir tablo. Her tam sayı, tablonun o numaralı satırını çekiyor. Böylece her token <strong>C</strong> sayılık bir vektör oluyor ve tensöre üçüncü boyut ekleniyor.</p><p>Çarpma yok, sadece satır seçme. Hafta 4'teki <code>C[X]</code> ile birebir aynı işlem.</p>`,
+ anim:animLookup,
+ render(){const rows=usedIdx.map(i=>tokTable[i]);return `<div class="stage">${tensor("xb",[["B","B"],["T","T"]],mat("xb",xb,{intMode:true,rowLabels:["b=0","b=1"],colLabels:Trow}))}${op("→ satır seç →")}${tensor("tablo",[["65","V"],["C","C"]],mat("tt",usedIdx.map(i=>tokTable[i]),{rowLabels:usedIdx.map(i=>"satır "+i),rowIds:usedIdx,small:true}),"sadece kullanılan satırlar gösteriliyor")}${op("=")}${batches("tok_emb",[["B","B"],["T","T"],["C","C"]],b=>mat("te"+b,tokEmb[b],{rowLabels:Trow,small:true}))}</div><div class="legend"><span><i class="sw" style="background:rgba(var(--pos-rgb),.5)"></i>mavi = pozitif</span><span><i class="sw" style="background:rgba(var(--neg-rgb),.5)"></i>şeftali = negatif</span><span>yoğunluk = büyüklük</span></div>`}},
+{t:"Pozisyon embedding ve toplama",code:"x = tok_emb + position_embedding_table(arange(T))",
+ why:`<p>Attention, sırayı kendiliğinden bilmez. Bu yüzden her pozisyona da <strong>C</strong> boyutlu bir vektör veriyoruz: <code>(T, C)</code>. Bu tablo her batch için aynıdır, broadcasting ile <code>(B, T, C)</code> üstüne yayılarak toplanır.</p><p>Sonuç <code>x</code>: artık hem “hangi harf” hem “kaçıncı sırada” bilgisini taşıyor. Bundan sonra <code>x</code>'in şekli en sona kadar <code>(B, T, C)</code> olarak kalır.</p>`,
+ anim:()=>animRows(["te"+bsel,"pe"],"x"+bsel),
+ render(){return `<div class="stage">${tensor("tok_emb[b="+bsel+"]",[["T","T"],["C","C"]],mat("te"+bsel,tokEmb[bsel],{rowLabels:Trow,small:true}))}${op("+")}${tensor("pos_emb",[["T","T"],["C","C"]],mat("pe",posTable,{rowLabels:Trow,small:true}),"her batch için aynı")}${op("=")}${tensor("x[b="+bsel+"]",[["T","T"],["C","C"]],mat("x"+bsel,x0[bsel],{rowLabels:Trow,small:true}))}</div>`}},
+{t:"q, k, v projeksiyonları",code:"q = query(x); k = key(x); v = value(x)   # (T,C) @ (C,hs)",
+ why:`<p>Head'in içine girdik. Üç ayrı <code>nn.Linear(C, head_size, bias=False)</code>, yani üç tane <code>(C, hs)</code> ağırlık matrisi. <code>x</code> her biriyle çarpılıyor, <strong>C</strong> boyutu <strong>head_size</strong>'a iniyor.</p><p>Sezgi: <code>q</code> “ne arıyorum”, <code>k</code> “bende ne var”, <code>v</code> “bana bakarsan ne veririm”. Üçü de aynı <code>x</code>'ten türüyor; farkları sadece hangi ağırlıkla çarpıldıkları.</p><p>Batch'ler birbirinden bağımsız: aynı çarpım batch 1 için ayrıca yapılır. Üstteki düğmeyle hangisini izlediğini seçebilirsin. Burada <code>x</code> yerine <code>ln1(x)</code> giriyor, LayerNorm'u 10. adımda konuşacağız.</p>`,
+ anim:()=>animMatmul("lx","wq","q"),
+ render(){const f=fw[bsel],h=f.hs[0];return `<div class="stage">${tensor("ln1(x)",[["T","T"],["C","C"]],mat("lx",f.ln1,{rowLabels:Trow,small:true}))}${op("@")}${tensor("Wq",[["C","C"],["hs","H"]],mat("wq",heads[0].Wq,{small:true}))}${op("=")}${tensor("q",[["T","T"],["hs","H"]],mat("q",h.q,{rowLabels:Trow,small:true}))}</div><div class="stage" style="margin-top:16px">${tensor("k",[["T","T"],["hs","H"]],mat("k",h.k,{rowLabels:Trow,small:true}),"= ln1(x) @ Wk")}${tensor("v",[["T","T"],["hs","H"]],mat("v",h.v,{rowLabels:Trow,small:true}),"= ln1(x) @ Wv")}</div><div class="note">Bir çıktı hücresi = <code>x</code>'in bir satırı ile <code>W</code>'nun bir sütununun iç çarpımı. Animasyonda lavanta satır × nane sütun → koyu hücre.</div>`}},
+{t:"İlgi skorları: q @ kᵀ",code:"wei = q @ k.transpose(-2,-1) * head_size**-0.5   # (T,hs)@(hs,T) → (T,T)",
+ why:`<p>Her token'ın sorusunu, her token'ın etiketiyle karşılaştırıyoruz: <code>(T, hs) @ (hs, T) = (T, T)</code>. Hücre <code>[i, j]</code>, i. token'ın j. token'a verdiği ham ilgi skoru. Sorusu ve etiketi uyuşanlar büyük çıkıyor.</p><p>Sonra <code>head_size**-0.5</code> ile çarpıyoruz. <strong>hs</strong> tane terim toplandığı için varyans <strong>hs</strong> kat şişmişti; <code>1/√hs</code> bunu geri alıyor. Hafta 5'teki Kaiming init ile aynı sebep: softmax'a aşırı büyük sayılar girerse dağılım tek bir yere çöker.</p>`,
+ anim:()=>animMatmul("q","kt","sc"),
+ render(){const h=fw[bsel].hs[0];return `<div class="stage">${tensor("q",[["T","T"],["hs","H"]],mat("q",h.q,{rowLabels:Trow,small:true}))}${op("@")}${tensor("kᵀ",[["hs","H"],["T","T"]],mat("kt",transpose(h.k),{colLabels:Trow,small:true}))}${op("=")}${tensor("q @ kᵀ",[["T","T"],["T","T"]],mat("raw",h.raw,{rowLabels:Trow,colLabels:Trow,small:true}),"ölçeksiz")}${op("× 1/√3 =")}${tensor("wei",[["T","T"],["T","T"]],mat("sc",h.sc,{rowLabels:Trow,colLabels:Trow,small:true}))}</div><div class="note">Satır = soran token, sütun = bakılan token. <code>wei[2, 0]</code>: 3. token'ın 1. token'a ilgisi.</div>`}},
+{t:"Geleceği maskele",code:"wei = wei.masked_fill(tril[:T,:T] == 0, float('-inf'))",
+ why:`<p>Dil modeli i. token'dan sonrakini tahmin ederken i'den sonrasını göremez, yoksa cevabı kopya çeker. <code>tril</code> alt üçgen birler matrisi; sıfır olan yerlere <code>-∞</code> yazıyoruz.</p><p>Neden <code>-∞</code>, neden 0 değil? Bir sonraki adımda softmax var ve <code>e^(-∞) = 0</code>. Yani o pozisyonlar tam olarak sıfır ağırlık alır. 0 yazsaydık <code>e^0 = 1</code> olurdu ve geleceğe hâlâ bakılırdı.</p><p><code>tril</code> öğrenilen bir parametre değil, o yüzden <code>register_buffer</code> ile kaydediliyor.</p>`,
+ anim:()=>animRows(["tri"],"msk"),
+ render(){const h=fw[bsel].hs[0];return `<div class="stage">${tensor("wei",[["T","T"],["T","T"]],mat("sc",h.sc,{rowLabels:Trow,colLabels:Trow,small:true}))}${op("maske")}${tensor("tril",[["T","T"],["T","T"]],mat("tri",tril,{intMode:true,rowLabels:Trow,colLabels:Trow,small:true}))}${op("→")}${tensor("wei (maskeli)",[["T","T"],["T","T"]],mat("msk",h.masked,{rowLabels:Trow,colLabels:Trow,small:true}))}</div><div class="note">t=0 sadece kendine bakabilir, t=3 hepsine. Üst üçgen = gelecek = yasak.</div>`}},
+{t:"Softmax: satırlar olasılık olur",code:"wei = F.softmax(wei, dim=-1)",
+ why:`<p>Her satırı, toplamı 1 olan bir dağılıma çeviriyoruz. <code>dim=-1</code> son eksen, yani sütunlar boyunca: “i. token dikkatinin %100'ünü geçmiş token'lar arasında nasıl bölüyor?” sorusu satır içinde cevaplanır. <code>dim=0</code> olsaydı sütun boyunca normalize ederdik, bu anlamsız olurdu.</p><p><code>-∞</code> olan hücreler tam 0 oldu. İlk satırda tek seçenek var, o yüzden 1.00.</p>`,
+ anim:()=>animRows(["msk"],"sm",i=>{}),
+ render(){const h=fw[bsel].hs[0];const sums=h.w.map(r=>r.reduce((a,b)=>a+b,0));return `<div class="stage">${tensor("wei (maskeli)",[["T","T"],["T","T"]],mat("msk",h.masked,{rowLabels:Trow,colLabels:Trow,small:true}))}${op("softmax →")}${tensor("wei",[["T","T"],["T","T"]],mat("sm",h.w,{rowLabels:Trow,colLabels:Trow,small:true,vmax:1}))}${tensor("satır toplamı",[["T","T"]],mat("sums",sums.map(s=>[s]),{rowLabels:Trow,small:true,vmax:1}))}</div>`}},
+{t:"Ağırlıklı ortalama: wei @ v",code:"out = wei @ v   # (T,T)@(T,hs) → (T,hs)",
+ why:`<p>Attention'ın özü burası. Her token, dikkat ağırlıklarıyla geçmiş token'ların <code>v</code> vektörlerinin ortalamasını alıyor. <code>out[i]</code> = Σ<sub>j</sub> wei[i, j] · v[j].</p><p><strong>T</strong> boyutu çarpımda yutuluyor, geriye <code>(T, hs)</code> kalıyor: her token için <strong>head_size</strong> boyutlu, bağlamdan toplanmış bir özet.</p><p>Hafta 7'nin başındaki <code>xbow</code> (bag of words, eşit ağırlıklı ortalama) bunun özel haliydi; şimdi ağırlıklar veriye bağlı ve öğreniliyor.</p>`,
+ anim:()=>animMatmul("sm","v","out"),
+ render(){const h=fw[bsel].hs[0];return `<div class="stage">${tensor("wei",[["T","T"],["T","T"]],mat("sm",h.w,{rowLabels:Trow,colLabels:Trow,small:true,vmax:1}))}${op("@")}${tensor("v",[["T","T"],["hs","H"]],mat("v",h.v,{rowLabels:Trow,small:true}))}${op("=")}${tensor("out",[["T","T"],["hs","H"]],mat("out",h.out,{rowLabels:Trow,small:true}))}</div><div class="note">Satırdaki ağırlıkları sıfır olan yerler (gelecek) sütundan hiçbir şey katmaz.</div>`}},
+{t:"Multi-head: cat ve proj",code:"out = cat([h(x) for h in heads], dim=-1); out = proj(out)",
+ why:`<p>Tek head bir çeşit ilişki yakalar. <strong>n_head</strong> tane paralel head, her biri kendi <code>Wq, Wk, Wv</code> ile aynı işlemi yapıyor. Çıktıları son eksende yan yana ekleniyor: <code>n_head × head_size = C</code> seçildiği için tekrar <code>(T, C)</code> elde ediliyor.</p><p>Ardından <code>proj</code>, bir <code>(C, C)</code> lineer katman: head'lerin çıktılarını karıştırıp residual yola eklenmeye hazır hale getiriyor.</p>`,
+ anim:()=>animMatmul("cat","wp","sa"),
+ render(){const f=fw[bsel];return `<div class="stage">${tensor("head 0",[["T","T"],["hs","H"]],mat("h0",f.hs[0].out,{rowLabels:Trow,small:true}))}${tensor("head 1",[["T","T"],["hs","H"]],mat("h1",f.hs[1].out,{rowLabels:Trow,small:true}))}${op("cat →")}${tensor("cat",[["T","T"],["C","C"]],mat("cat",f.cat,{rowLabels:Trow,small:true}))}</div><div class="stage" style="margin-top:16px">${tensor("cat",[["T","T"],["C","C"]],mat("cat",f.cat,{rowLabels:Trow,small:true}))}${op("@")}${tensor("Wproj",[["C","C"],["C","C"]],mat("wp",Wproj,{small:true}))}${op("=")}${tensor("sa(x)",[["T","T"],["C","C"]],mat("sa",f.sa,{rowLabels:Trow,small:true}))}</div>`}},
+{t:"Residual ve LayerNorm",code:"x = x + sa(ln1(x))",
+ why:`<p>Attention'ın çıktısı <code>x</code>'in yerine geçmiyor, <strong>üstüne ekleniyor</strong>. Bu toplama residual bağlantı. Geri yayılımda toplama gradyanı değiştirmeden ikiye dağıtır; o yüzden gradyan 6 Block'un içinden geçmek zorunda kalmadan girişe kadar bir “otoyol”dan akabilir. Derin ağları eğitilebilir yapan şey bu.</p><p><strong>LayerNorm</strong>, hafta 5'teki BatchNorm'un kardeşi: ama batch boyunca değil, her token'ın kendi <strong>C</strong> sayısı boyunca normalize eder (satır ortalaması 0, std 1). Batch'e bağımlılık yok, <code>running_mean</code> derdi yok. Videoda “pre-norm” kullanıyoruz: önce normalize, sonra attention.</p>`,
+ anim:()=>animRows(["xin","sa"],"x1"),
+ render(){const f=fw[bsel];const means=f.ln1.map(r=>r.reduce((a,b)=>a+b,0)/C);return `<div class="stage">${tensor("x",[["T","T"],["C","C"]],mat("xin",f.x,{rowLabels:Trow,small:true}))}${op("ln1 →")}${tensor("ln1(x)",[["T","T"],["C","C"]],mat("lx",f.ln1,{rowLabels:Trow,small:true}),"her satır: ort 0, std 1")}</div><div class="stage" style="margin-top:16px">${tensor("x",[["T","T"],["C","C"]],mat("xin",f.x,{rowLabels:Trow,small:true}))}${op("+")}${tensor("sa(ln1(x))",[["T","T"],["C","C"]],mat("sa",f.sa,{rowLabels:Trow,small:true}))}${op("=")}${tensor("x (yeni)",[["T","T"],["C","C"]],mat("x1",f.x1,{rowLabels:Trow,small:true}))}</div>`}},
+{t:"Feed-forward: her token kendi başına",code:"x = x + ffwd(ln2(x))   # (T,C)→(T,4C)→ReLU→(T,C)",
+ why:`<p>Attention token'ların <strong>birbiriyle konuştuğu</strong> adımdı. FeedForward ise her token'ın topladığı bilgiyi <strong>tek başına</strong> işlediği adım: satırlar arasında hiçbir etkileşim yok, aynı küçük MLP her satıra ayrı ayrı uygulanıyor.</p><p>Önce <strong>C</strong>'den <strong>4C</strong>'ye genişleme, ReLU, sonra geri <strong>C</strong>'ye. Yine residual ile ekleniyor. Karpathy'nin deyişiyle: attention = iletişim, FFN = hesaplama.</p>`,
+ anim:()=>animMatmul("ln2","w1","hid"),
+ render(){const f=fw[bsel];return `<div class="stage">${tensor("ln2(x)",[["T","T"],["C","C"]],mat("ln2",f.ln2,{rowLabels:Trow,small:true}))}${op("@")}${tensor("W1",[["C","C"],["4C","C"]],mat("w1",W1,{small:true,maxCols:8}))}${op("=")}${tensor("gizli",[["T","T"],["4C","C"]],mat("hid",f.hid,{rowLabels:Trow,small:true,maxCols:8}))}</div><div class="stage" style="margin-top:16px">${tensor("ReLU(gizli)",[["T","T"],["4C","C"]],mat("act",f.act,{rowLabels:Trow,small:true,maxCols:8}))}${op("@ W2 →")}${tensor("ffwd",[["T","T"],["C","C"]],mat("ff",f.ff,{rowLabels:Trow,small:true}))}${op("+ x →")}${tensor("x (Block çıkışı)",[["T","T"],["C","C"]],mat("x2",f.x2,{rowLabels:Trow,small:true}))}</div><div class="note">Bu <code>x</code>, bir sonraki Block'a aynı şekilde <code>(B, T, C)</code> olarak girer. 6 Block boyunca şekil hiç değişmez.</div>`}},
+{t:"lm_head: logits",code:"logits = lm_head(ln_f(x))   # (B,T,C) @ (C,65) → (B,T,65)",
+ why:`<p>Son Block'tan çıkan <code>x</code> hâlâ <strong>C</strong> boyutlu bir temsil. Ama bize her pozisyon için 65 adayın skoru lazım. <code>lm_head = nn.Linear(C, vocab_size)</code> tam olarak bunu yapıyor: son eksen <strong>C</strong>'den <strong>65</strong>'e açılıyor.</p><p>Bigram modelde embedding tablosu doğrudan <code>(65, 65)</code> idi ve logit'i kendisi veriyordu. Şimdi giriş tablosu <code>(65, C)</code>, çıkış katmanı <code>(C, 65)</code>: vocab büyüyünce (tokenizer!) sadece bu iki katman büyür.</p>`,
+ anim:()=>animMatmul("lnf","wlm","lg"),
+ render(){const f=fw[bsel];return `<div class="stage">${tensor("ln_f(x)",[["T","T"],["C","C"]],mat("lnf",f.lnf,{rowLabels:Trow,small:true}))}${op("@")}${tensor("W_lm",[["C","C"],["65","V"]],mat("wlm",Wlm,{small:true,maxCols:6}))}${op("=")}${tensor("logits[b="+bsel+"]",[["T","T"],["65","V"]],mat("lg",f.logits,{rowLabels:Trow,small:true,maxCols:6}))}</div><div class="note">Sütunlar vocab: 0 = boşluk, 1 = “!”, … 64 = “z”. Gerçek modelde 65 sütunun hepsi var, burada ilk altısı gösteriliyor.</div>`}},
+{t:"Loss: düzleştir ve cross-entropy",code:"logits.view(B*T, C); targets.view(B*T); F.cross_entropy(logits, targets)",
+ why:`<p><code>F.cross_entropy</code> 2 boyutlu <code>(N, sınıf)</code> logits ve <code>(N,)</code> hedef ister. Bizde <code>(B, T, 65)</code> var; <code>view(B*T, 65)</code> ile batch ve zaman eksenlerini tek eksende birleştiriyoruz. Bilgi kaybı yok, 8 bağımsız tahmin alt alta diziliyor. Önceki sohbetteki <code>torch.Size([32, 65])</code> tam bu.</p><p>Her satır için: softmax al, doğru hedefin olasılığına bak, <code>-log</code>'unu al, ortalama. Rastgele modelde ≈ <code>-ln(1/65) = 4.17</code>; eğitim bunu 1.5'e indiriyor.</p>`,
+ anim:()=>animRows(["fl","tg"],"nl"),
+ render(){const rl=[];for(let b=0;b<B;b++)for(let t=0;t<T;t++)rl.push(`b${b},t${t}`);const ptar=flatProbs.map((p,i)=>[p[flatTargets[i]]]);return `<div class="stage">${tensor("logits.view",[["B·T","B"],["65","V"]],mat("fl",flatLogits,{rowLabels:rl,small:true,maxCols:5}))}${tensor("targets.view",[["B·T","B"]],mat("tg",flatTargets.map(v=>[v]),{intMode:true,small:true}))}${op("→")}${tensor("p(hedef)",[["B·T","B"]],mat("pt",ptar,{small:true,vmax:1}),"softmax sonrası doğru sınıfın olasılığı")}${tensor("−log p",[["B·T","B"]],mat("nl",nll.map(v=>[v]),{small:true}))}</div><div class="note">Ortalama loss = <code>${loss.toFixed(3)}</code>. Eğitilmemiş rastgele ağırlıklarla, beklenen ≈ 4.17 civarı; değerlerin bir kısmı şans eseri daha iyi ya da kötü.</div>`}},
+{t:"generate: tek tek üret",code:"logits[:, -1, :] → softmax → multinomial → cat",
+ why:`<p>Üretimde hedef yok, döngü var. Elimizdeki dizinin son <strong>block_size</strong> token'ını modele veriyoruz, <code>(1, T, 65)</code> logit çıkıyor. Sadece <strong>son zaman adımını</strong> alıyoruz: <code>(1, 65)</code>. Softmax ile olasılık, <code>multinomial</code> ile zar atıp bir token seçiyoruz, <code>cat</code> ile dizinin sonuna ekliyoruz. T bir büyür, baştan.</p><p>Önceki pozisyonların logit'leri boşa gitmiyor değil; eğitimde hepsi kullanılıyor ama üretimde sadece sonuncu lazım, çünkü ötekileri zaten biliyoruz.</p>`,
+ render(){const f=fw[0];const last=f.logits[T-1],p=f.probs[T-1];const top=[...p.keys()].sort((a,b)=>p[b]-p[a]).slice(0,6);const pick=top[0];return `<div class="stage">${tensor("idx",[["1","B"],["T","T"]],mat("gi",[xb[0]],{intMode:true,colLabels:Trow}))}${op("→ model →")}${tensor("logits",[["1","B"],["T","T"],["65","V"]],mat("gl",f.logits,{rowLabels:Trow,small:true,maxCols:5}))}${op("[:, -1, :] →")}${tensor("son adım",[["1","B"],["65","V"]],mat("gs",[last],{small:true,maxCols:5}))}</div><div class="stage" style="margin-top:16px">${tensor("softmax → en yüksek 6",[["1","B"],["65","V"]],mat("gp",[top.map(i=>p[i])],{small:true,vmax:1,colLabels:top.map(i=>`“${chars[i]==" "?"␣":chars[i]}”`)}))}${op("multinomial →")}${tensor("idx_next",[["1","B"],["1","T"]],mat("gn",[[pick]],{intMode:true}))}${op("cat →")}${tensor("idx",[["1","B"],["T+1","T"]],mat("gc",[[...xb[0],pick]],{intMode:true}))}</div><div class="note">Son <code>(1, 5)</code>, bir sonraki turda tekrar modele girer. <code>block_size</code> aşılınca <code>idx[:, -block_size:]</code> ile baştaki token'lar atılır, çünkü pozisyon tablosunda T'den fazla satır yok.</div>`}},
+];
+
+let cur=0;
+const nav=document.getElementById("nav"),main=document.getElementById("main");
+function renderNav(){nav.innerHTML=steps.map((s,i)=>`<button class="${i===cur?"on":""}" onclick="go(${i})"><span class="n">${String(i).padStart(2,"0")}</span><span>${s.t}</span></button>`).join("")}
+function render(){
+  const s=steps[cur];
+  const hasB=cur>=3&&cur<=12;
+  main.innerHTML=`
+  <div class="bar"><i style="width:${(cur+1)/steps.length*100}%"></i></div>
+  <div class="step-head"><h2>${s.t}</h2><code>${s.code}</code></div>
+  <div class="prose">${s.why}</div>
+  <div class="controls">
+    ${s.anim?`<button class="btn primary" id="play" onclick="runAnim(steps[cur].anim)">Animasyonu oynat</button>`:""}
+    ${hasB?`<span class="seg" role="group" aria-label="batch"><button class="${bsel===0?"on":""}" onclick="setB(0)">batch 0</button><button class="${bsel===1?"on":""}" onclick="setB(1)">batch 1</button></span>`:""}
+    ${s.anim?`<label class="speed">hız <input type="range" min="0.5" max="3" step="0.5" value="${speed}" oninput="speed=+this.value"></label>`:""}
+  </div>
+  <div id="stage">${s.render()}</div>
+  <div class="footer-nav">
+    <button class="btn" ${cur===0?"disabled":""} onclick="go(${cur-1})">← Önceki</button>
+    <button class="btn" ${cur===steps.length-1?"disabled":""} onclick="go(${cur+1})">Sonraki →</button>
+  </div>`;
+  renderNav();
+  const on=nav.querySelector("button.on");if(on&&on.scrollIntoView)on.scrollIntoView({block:"nearest",inline:"nearest"});
+}
+function go(i){if(playing){stopFlag=true}cur=i;window.scrollTo({top:0,behavior:"smooth"});render()}
+function setB(b){bsel=b;render()}
+document.addEventListener("keydown",e=>{if(e.key==="ArrowRight"&&cur<steps.length-1)go(cur+1);if(e.key==="ArrowLeft"&&cur>0)go(cur-1)});
+try{const h=location.hash.replace("#","");if(/^s\d+$/.test(h)){const n=+h.slice(1);if(n>=0&&n<steps.length)cur=n}}catch(e){}
+render();
+</script>
+</body>
+</html>
